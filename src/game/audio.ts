@@ -227,8 +227,12 @@ export class AudioSink {
   // volumen, con rampas suaves. Entrar en combate no interrumpe: sube.
   private explorar: HTMLAudioElement | null = null;
   private combate: HTMLAudioElement | null = null;
-  private volExplorar = 0;
-  private volCombate = 0;
+  // OJO: esto es el AVANCE de la rampa (0..1), no el volumen. El oído es
+  // logarítmico: una subida lineal de volumen suena "ya a tope" en cuanto
+  // pasa de 0,2, así que el avance se eleva al cuadrado antes de aplicarlo.
+  // Eso es lo que hace que la entrada se oiga de verdad progresiva.
+  private avanceExplorar = 0;
+  private avanceCombate = 0;
   private enCombate = false;
   private musicaVol = 0.55; // el que mueve el jugador con la barra
   private arrancada = false;
@@ -236,9 +240,14 @@ export class AudioSink {
 
   // Rampas, en segundos. La de entrada al principio es larga a propósito:
   // el tema de explorar entra susurrando y crece.
-  private static readonly ENTRADA_INICIAL = 8;
-  private static readonly ENTRADA_COMBATE = 3.5;
+  private static readonly ENTRADA_INICIAL = 11;
+  private static readonly ENTRADA_COMBATE = 4;
   private static readonly SALIDA_COMBATE = 3;
+  // curva de volumen: cuadrática. A mitad de rampa se oye a un cuarto, que es
+  // más o menos "la mitad de fuerte" para el oído.
+  private static curva(avance: number): number {
+    return avance * avance;
+  }
 
   private startMusic(): void {
     if (this.arrancada) return;
@@ -265,7 +274,7 @@ export class AudioSink {
     this.enCombate = v;
     // si el tema de combate estaba del todo apagado, empieza por el principio:
     // así cada pelea arranca con su golpe de entrada
-    if (v && this.combate && this.volCombate < 0.02) {
+    if (v && this.combate && this.avanceCombate < 0.02) {
       try {
         this.combate.currentTime = 0;
       } catch {
@@ -285,21 +294,26 @@ export class AudioSink {
 
   updateMusic(dt: number): void {
     if (!this.arrancada) return;
-    const objetivoExplorar = this.muted ? 0 : this.enCombate ? 0 : this.musicaVol;
-    const objetivoCombate = this.muted ? 0 : this.enCombate ? this.musicaVol : 0;
+    const sonando = this.muted ? 0 : 1;
+    const objetivoExplorar = this.enCombate ? 0 : sonando;
+    const objetivoCombate = this.enCombate ? sonando : 0;
     // cada rampa tiene su prisa: entrar en combate es más rápido que salir
     const subeC = AudioSink.ENTRADA_COMBATE;
     const bajaC = AudioSink.SALIDA_COMBATE;
     // OJO: la rampa larga del arranque tiene que durar TODA la subida, no
     // solo el primer frame (que era el fallo: se apagaba al segundo tick)
     const subeE = this.primeraEntrada && !this.enCombate ? AudioSink.ENTRADA_INICIAL : bajaC;
-    this.volExplorar = mover(this.volExplorar, objetivoExplorar, dt, subeE);
-    this.volCombate = mover(this.volCombate, objetivoCombate, dt, this.enCombate ? subeC : bajaC);
-    if (this.primeraEntrada && (this.volExplorar >= objetivoExplorar - 0.001 || this.enCombate)) {
+    this.avanceExplorar = mover(this.avanceExplorar, objetivoExplorar, dt, subeE);
+    this.avanceCombate = mover(this.avanceCombate, objetivoCombate, dt, this.enCombate ? subeC : bajaC);
+    if (this.primeraEntrada && (this.avanceExplorar >= 0.999 || this.enCombate)) {
       this.primeraEntrada = false;
     }
-    if (this.explorar) this.explorar.volume = clamp01(this.volExplorar);
-    if (this.combate) this.combate.volume = clamp01(this.volCombate);
+    if (this.explorar) {
+      this.explorar.volume = clamp01(AudioSink.curva(this.avanceExplorar) * this.musicaVol);
+    }
+    if (this.combate) {
+      this.combate.volume = clamp01(AudioSink.curva(this.avanceCombate) * this.musicaVol);
+    }
     // los navegadores pausan el audio si la pestaña estuvo oculta
     if (this.explorar?.paused) void this.explorar.play().catch(() => {});
     if (this.combate?.paused) void this.combate.play().catch(() => {});

@@ -33,18 +33,25 @@ const res = await page.evaluate(async () => {
 
   const traza = [];
   const paso = (dt, n) => { for (let i = 0; i < n; i++) a.updateMusic(dt); };
+  const dB = (v) => (v <= 0.0005 ? '-inf' : `${(20 * Math.log10(v / 0.6)).toFixed(1)} dB`);
+  const foto = (etiqueta) => traza.push([
+    etiqueta,
+    `explorar ${a.explorar.volume.toFixed(3)} (${dB(a.explorar.volume)})`,
+    `combate ${a.combate.volume.toFixed(3)} (${dB(a.combate.volume)})`,
+  ]);
   // fuera de combate: la de explorar entra suave y sube
-  paso(0.25, 4); traza.push(['1 s explorando', +a.explorar.volume.toFixed(3), +a.combate.volume.toFixed(3)]);
-  paso(0.25, 16); traza.push(['5 s explorando', +a.explorar.volume.toFixed(3), +a.combate.volume.toFixed(3)]);
-  paso(0.25, 16); traza.push(['9 s explorando', +a.explorar.volume.toFixed(3), +a.combate.volume.toFixed(3)]);
-  // entra en combate
+  foto('arranque');
+  paso(0.25, 8); foto('2 s explorando');
+  paso(0.25, 8); foto('4 s explorando');
+  paso(0.25, 12); foto('7 s explorando');
+  paso(0.25, 16); foto('11 s explorando');
   a.setCombat(true);
-  paso(0.25, 4); traza.push(['1 s de pelea', +a.explorar.volume.toFixed(3), +a.combate.volume.toFixed(3)]);
-  paso(0.25, 10); traza.push(['3,5 s de pelea', +a.explorar.volume.toFixed(3), +a.combate.volume.toFixed(3)]);
-  // se acabó la pelea
+  paso(0.25, 4); foto('1 s de pelea');
+  paso(0.25, 4); foto('2 s de pelea');
+  paso(0.25, 8); foto('4 s de pelea');
   a.setCombat(false);
-  paso(0.25, 4); traza.push(['1 s tras la pelea', +a.explorar.volume.toFixed(3), +a.combate.volume.toFixed(3)]);
-  paso(0.25, 12); traza.push(['4 s tras la pelea', +a.explorar.volume.toFixed(3), +a.combate.volume.toFixed(3)]);
+  paso(0.25, 4); foto('1 s tras la pelea');
+  paso(0.25, 8); foto('3 s tras la pelea');
   // ¿el servidor sirve bien los ficheros? (headless puede no traer el códec
   // MP3, así que la carga real hay que comprobarla por HTTP)
   const http = {};
