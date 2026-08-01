@@ -9,14 +9,22 @@ export const COLOSSUS_LENGTH = 380; // eje Z: cola (-) a cabeza (+)
 export const COLOSSUS_WIDTH = 116; // eje X
 export const MIST_LEVEL = -26; // altura del mar de niebla tóxica
 export const VERTEBRA_SPACING = 30;
-// El lomo no es una loma lisa: es una escalera de mesetas, como las placas de
-// piel del coloso. La altura se cuantiza a escalones de TERRACE_STEP con una
-// banda de transición estrecha (el "acantilado"). El escalón mide menos que lo
-// que sube un salto (1,6 m), así que siempre se puede subir de un brinco.
-export const TERRACE_STEP = 1.5; // por debajo de lo que sube un salto (1,60 m)
-const TERRACE_EDGE = 0.09; // parte del escalón que ocupa la pared (0..1)
 export const SPAWN_X = 0;
 export const SPAWN_Z = -120;
+// El lomo no es una loma: son PLACAS, como las escamas de piel del coloso.
+//
+// Historia de dos intentos fallidos, que explica por qué el código es así:
+//   1) cuantizar la ALTURA daba surcos finos, porque el ancho de cada franja
+//      es el escalón dividido por la pendiente;
+//   2) cuantizar el suelo en una CUADRÍCULA daba un damero de cajas.
+// Lo que funciona es Voronoi: el suelo se reparte entre puntos sembrados al
+// azar y cada región es una placa plana con contorno irregular. La pared sale
+// donde dos placas se tocan, que es justo lo que se ve en la referencia.
+export const CELL_SIZE = 19; // separación media entre placas, en metros
+export const TERRACE_STEP = 1.5; // por debajo de lo que sube un salto (1,60 m)
+const WALL_BAND = 1.5; // ancho de la pared entre placas, en metros
+export const GRASS_LIP = 0.42; // cuánto césped desborda por el canto
+export const NIVELES = 3; // el suelo y dos placas encima: ni una más
 
 function smoothstep(a: number, b: number, t: number): number {
   const u = Math.min(1, Math.max(0, (t - a) / (b - a)));
@@ -32,47 +40,113 @@ export function vertebraFactor(x: number, z: number): number {
   return along * across;
 }
 
-// Cuantiza una altura a mesetas planas separadas por paredes cortas.
-function terrace(h: number): number {
-  const t = h / TERRACE_STEP;
-  const base = Math.floor(t);
-  const frac = t - base;
-  if (frac < 1 - TERRACE_EDGE) return base * TERRACE_STEP; // meseta plana
-  const k = (frac - (1 - TERRACE_EDGE)) / TERRACE_EDGE; // 0..1 dentro de la pared
-  return (base + smoothstep(0, 1, k)) * TERRACE_STEP;
+// Desorden reproducible por celda (dos valores independientes).
+function hash2(cx: number, cz: number, seed: number): [number, number] {
+  const a = Math.sin(cx * 127.1 + cz * 311.7 + seed * 0.0013) * 43758.5453;
+  const b = Math.sin(cx * 269.5 + cz * 183.3 + seed * 0.0017) * 24634.6345;
+  return [a - Math.floor(a), b - Math.floor(b)];
 }
 
-// Altura del terreno. Pura y determinista: misma (x,z,seed) -> misma altura.
-export function terrainHeight(x: number, z: number, seed: number): number {
+// Forma suave del coloso: la que se muestrea en cada semilla para decidir a
+// qué cota se asienta su placa.
+function shapeHeight(x: number, z: number, seed: number): number {
   const halfL = COLOSSUS_LENGTH / 2;
   const halfW = COLOSSUS_WIDTH / 2;
   const u = Math.abs(x) / halfW; // 0 espina, 1 borde del flanco
   const w = Math.abs(z) / halfL; // 0 centro, 1 cabeza/cola
 
-  // Meseta del lomo que cae hacia los flancos
-  let h = 13 * (1 - smoothstep(0.12, 1.0, u));
-  // El flanco se desploma hacia la niebla
-  h -= 60 * smoothstep(0.8, 1.3, u);
-  // La cabeza y la cola caen
-  h -= 45 * smoothstep(0.8, 1.15, w);
+  let h = 13 * (1 - smoothstep(0.12, 1.0, u)); // meseta del lomo
+  h -= 60 * smoothstep(0.8, 1.3, u); // el flanco se desploma hacia la niebla
+  h -= 45 * smoothstep(0.8, 1.15, w); // la cabeza y la cola caen
+  h += 6 * vertebraFactor(x, z); // vértebras sobre la espina
+  // Ondulación MUY suave: es solo la forma del bicho. El relieve de verdad lo
+  // ponen las placas, y esas van por niveles.
+  h += (fbm2(x * 0.007 + 7.3, z * 0.007, seed) - 0.5) * 4;
+  return h;
+}
 
-  // Vértebras: mesetas de hueso periódicas sobre la espina
-  h += 6 * vertebraFactor(x, z);
+// La cota de una placa: la forma suave en su semilla, redondeada al escalón.
+// El desplome del flanco no se escalona (allí el lomo se cae a la niebla).
+// El nivel (0, 1 o 2) al que se levanta la placa de una semilla. Exportado
+// para poder comprobar de un vistazo que el relieve no se va de tres alturas.
+export function plateLevel(sx: number, sz: number, seed: number): number {
+  const zona = fbm2(sx * 0.013 + 51, sz * 0.013, seed + 31);
+  const [r] = hash2(sx * 0.37, sz * 0.41, seed + 5);
+  return Math.max(0, Math.min(NIVELES - 1, Math.floor(zona * 3.5 + (r - 0.5) * 1.1)));
+}
 
-  // Ondulación grande (el lomo respira) + detalle fino
-  // OJO: el ANCHO de cada meseta es el escalón dividido por la pendiente del
-  // terreno de base. Con el ruido antiguo (amplitud 7, frecuencia 0,018) salían
-  // terrazas de 7 m que parecían un mapa topográfico; suavizándolo salen
-  // mesetas de veinte y pico metros, que es lo que se ve en la referencia.
-  h += (fbm2(x * 0.009 + 7.3, z * 0.009, seed) - 0.5) * 5;
-  h += (fbm2(x * 0.045, z * 0.045, seed + 991) - 0.5) * 1.1;
+function plateHeight(sx: number, sz: number, seed: number): number {
+  // TRES alturas y no más: el suelo, y hasta dos placas encima. Antes salía
+  // una escalera de siete pisos y parecía una mina a cielo abierto; en la
+  // referencia hay una base y como mucho dos peldaños.
+  const base = shapeHeight(sx, sz, seed);
+  const nivel = plateLevel(sx, sz, seed);
+  const u = Math.abs(sx) / (COLOSSUS_WIDTH / 2);
+  const enPie = 1 - smoothstep(0.8, 1.05, u); // el flanco que cae no se escalona
+  return base + nivel * TERRACE_STEP * enPie;
+}
 
-  // Escalonado. El hueso de las vértebras se queda liso (es hueso, no tierra)
-  // y los flancos que se desploman también: allí las terrazas no pintan nada.
-  // El escalonado alcanza a TODO el lomo andable, hueso incluido: si las
-  // vértebras se quedaban lisas parecían dunas de arena en mitad de la escalera.
-  const enPie = 1 - smoothstep(0.85, 1.15, u); // fuera del desplome del flanco
-  return h + (terrace(h) - h) * enPie;
+interface Voronoi {
+  alto: number; // cota de la placa que pisas
+  vecina: number; // cota de la placa de al lado
+  borde: number; // 0 en el centro de la placa, 1 pegado al canto
+}
+
+// Las dos placas más cercanas y lo cerca que estás de su frontera.
+function voronoi(x: number, z: number, seed: number): Voronoi {
+  const gx = Math.floor(x / CELL_SIZE);
+  const gz = Math.floor(z / CELL_SIZE);
+  let d1 = Infinity;
+  let d2 = Infinity;
+  let s1x = 0;
+  let s1z = 0;
+  let s2x = 0;
+  let s2z = 0;
+  for (let ox = -1; ox <= 1; ox++) {
+    for (let oz = -1; oz <= 1; oz++) {
+      const cx = gx + ox;
+      const cz = gz + oz;
+      const [jx, jz] = hash2(cx, cz, seed);
+      const sx = (cx + jx) * CELL_SIZE;
+      const sz = (cz + jz) * CELL_SIZE;
+      const d = Math.hypot(x - sx, z - sz);
+      if (d < d1) {
+        d2 = d1;
+        s2x = s1x;
+        s2z = s1z;
+        d1 = d;
+        s1x = sx;
+        s1z = sz;
+      } else if (d < d2) {
+        d2 = d;
+        s2x = sx;
+        s2z = sz;
+      }
+    }
+  }
+  return {
+    alto: plateHeight(s1x, s1z, seed),
+    vecina: plateHeight(s2x, s2z, seed),
+    // (d2-d1)/2 es la distancia a la frontera entre las dos placas
+    borde: 1 - smoothstep(0, WALL_BAND, (d2 - d1) / 2),
+  };
+}
+
+// Altura del terreno. Pura y determinista: misma (x,z,seed) -> misma altura.
+// Plana dentro de cada placa, con una pared corta en la frontera.
+export function terrainHeight(x: number, z: number, seed: number): number {
+  const v = voronoi(x, z, seed);
+  if (v.borde <= 0) return v.alto;
+  // solo se baja hacia la vecina MÁS BAJA: así el canto es un escalón hacia
+  // fuera y no un valle entre dos placas
+  const destino = Math.min(v.alto, v.vecina);
+  return v.alto + (destino - v.alto) * smoothstep(0, 1, v.borde) * 0.5;
+}
+
+// Cota de la placa que se pisa, sin la pared. La usa el render para saber
+// cuánto césped desborda por el canto.
+export function plateauTop(x: number, z: number, seed: number): number {
+  return voronoi(x, z, seed).alto;
 }
 
 // Pendiente aproximada (dy máximo por unidad horizontal) por diferencias finitas.
@@ -203,6 +277,10 @@ export function generateDecorations(seed: number): Decoration[] {
     for (let k = 0; k < cuantas; k++) {
       const dx = rng.range(-1.4, 1.4);
       const dz = rng.range(-1.4, 1.4);
+      // ojo: la brizna se coloca DESPLAZADA, y ese punto puede caer por el
+      // canto de la placa. Sin esta comprobación aparecía hierba flotando
+      // sobre la niebla.
+      if (terrainHeight(p.x + dx, p.z + dz, seed) < 1) continue;
       out.push({
         type: HIERBAS[Math.floor(rng.next() * HIERBAS.length)],
         x: p.x + dx,

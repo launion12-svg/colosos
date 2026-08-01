@@ -7,6 +7,8 @@ import {
   COLOSSUS_WIDTH,
   MIST_LEVEL,
   SPAWN_X,
+  NIVELES,
+  plateLevel,
   SPAWN_Z,
   TERRACE_STEP,
   generateDecorations,
@@ -77,16 +79,27 @@ describe('terreno del coloso', () => {
       muestras++;
       if (Math.abs(h1 - h0) < 0.01) iguales++;
       alturas.add(h0.toFixed(3));
-      // y cada meseta está a un múltiplo del escalón
-      if (Math.abs(h1 - h0) < 0.01) {
-        const k = h0 / TERRACE_STEP;
-        expect(Math.abs(k - Math.round(k))).toBeLessThan(0.02);
+    }
+    // la mayor parte del recorrido es placa plana, no cuesta
+    expect(iguales / muestras).toBeGreaterThan(0.6);
+    // y hay placas a distintas cotas: si no, sería una mesa de billar
+    expect(alturas.size).toBeGreaterThan(4);
+  });
+
+  it('el relieve son TRES niveles y no más: el suelo y dos placas encima', () => {
+    // Se mide el NIVEL de placa, no la altura: la altura incluye la forma del
+    // bicho (el lomo es una cúpula y las vértebras abultan), y eso no es
+    // relieve de placas.
+    const vistos = new Set<number>();
+    for (let x = -50; x <= 50; x += 2.5) {
+      for (let z = -160; z <= 160; z += 2.5) {
+        const n = plateLevel(x, z, SEED);
+        expect(n).toBeGreaterThanOrEqual(0);
+        expect(n).toBeLessThanOrEqual(NIVELES - 1);
+        vistos.add(n);
       }
     }
-    // la mayor parte del recorrido es meseta plana, no cuesta
-    expect(iguales / muestras).toBeGreaterThan(0.6);
-    // pero hay varios niveles distintos: si no, sería una mesa de billar
-    expect(alturas.size).toBeGreaterThan(4);
+    expect(vistos.size).toBe(NIVELES); // y los tres se usan de verdad
   });
 
   it('los escalones se pueden subir de un salto', () => {

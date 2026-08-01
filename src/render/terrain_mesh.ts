@@ -7,16 +7,20 @@ import { fbm2 } from '../sim/rng';
 import {
   COLOSSUS_LENGTH,
   COLOSSUS_WIDTH,
+  GRASS_LIP,
+  plateauTop,
   terrainHeight,
   terrainSteepness,
   vertebraFactor,
 } from '../sim/terrain';
 
-const GRASS_A = new THREE.Color(0x5a9440);
-const GRASS_B = new THREE.Color(0x3f7a35);
-const ROCK = new THREE.Color(0x6e6a66);
-const ROCK_DARK = new THREE.Color(0x4a4a4c);
-const ROCK_LIGHT = new THREE.Color(0xa8a49c);
+// Paleta a juego con la referencia: césped vivo y roca CLARA. La roca oscura
+// de antes convertía las paredes en zanjas de barro.
+const GRASS_A = new THREE.Color(0x66ab3e);
+const GRASS_B = new THREE.Color(0x4d8f37);
+const ROCK = new THREE.Color(0x9c9890);
+const ROCK_DARK = new THREE.Color(0x746f68);
+const ROCK_LIGHT = new THREE.Color(0xc8c4bb);
 const BONE = new THREE.Color(0xe8ddc4);
 const EDGE = new THREE.Color(0x3a3f52);
 
@@ -54,7 +58,12 @@ export function buildTerrainMesh(seed: number): THREE.Mesh {
     // parezca piedra sedimentaria y no una rampa gris.
     // umbral bajo a propósito: la pared de una terraza ronda 0,9 de pendiente
     // y con el umbral antiguo salía verde, como una rampa de césped
-    const rockMix = THREE.MathUtils.smoothstep(steep, 0.28, 0.72);
+    // El césped DESBORDA por el canto: los primeros centímetros de la pared
+    // siguen siendo verdes. Es el detalle que hace que la placa parezca una
+    // loncha de tierra con hierba encima y no un bloque pintado por arriba.
+    const caida = plateauTop(x, z, seed) - y;
+    const labio = 1 - THREE.MathUtils.smoothstep(caida, GRASS_LIP, GRASS_LIP * 2.2);
+    const rockMix = THREE.MathUtils.smoothstep(steep, 0.28, 0.72) * (1 - labio);
     if (rockMix > 0.01) {
       const estrato = Math.sin(y * 6.5 + n * 1.2) * 0.5 + 0.5;
       pared.copy(ROCK).lerp(ROCK_DARK, estrato * 0.75);
