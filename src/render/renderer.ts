@@ -112,6 +112,16 @@ export class GameRenderer {
   private setDefs = new Map<string, ClassDef>();
   private activeDef: ClassDef;
   private initialSets: string[];
+  // Gestos de una sola vez que mandan sobre la animación de marcha mientras
+  // duran. Sin esto, dar un paso al beber cortaba el trago por la mitad.
+  private static readonly GESTOS: Record<string, { ts: number; dur: number }> = {
+    Use_Item: { ts: 1.35, dur: 1.18 }, // beber la poción
+    PickUp: { ts: 1.5, dur: 0.86 }, // recoger del suelo
+    Jump_Start: { ts: 1.6, dur: 0.37 },
+    Jump_Land: { ts: 1.5, dur: 0.44 },
+    Spawn_Ground: { ts: 1.2, dur: 1.08 },
+  };
+  private gestoHasta = -99; // reloj hasta el que el gesto en curso no se toca
   private dodgeLean = 0; // inclinación del cuerpo durante el quiebro
   private sitStartedAt = -99; // cuándo empezó el gesto de sentarse
   private potionVisuals = new Map<number, THREE.Group>();
@@ -380,6 +390,16 @@ export class GameRenderer {
 
   // Traduce los hechos del sim a juice. Cada evento con impacto: feedback en
   // el objeto, en la cámara, en el tiempo y hook de audio.
+  // Lanza un gesto del jugador si su rig lo tiene, y lo protege el tiempo que
+  // dure. Si el modelo no lo trae, no pasa nada: el juego sigue igual.
+  private gesto(id: number, nombre: string): void {
+    const v = this.views.get(id);
+    const g = GameRenderer.GESTOS[nombre];
+    if (!v || !g || !v.has(nombre)) return;
+    v.play(nombre, { once: true, fade: 0.08, timeScale: g.ts });
+    this.gestoHasta = this.elapsed + g.dur;
+  }
+
   // Para las capturas: la plantilla del bestiario de una especie
   bestiarioDe(id: string) {
     return BESTIARY[id];
@@ -471,7 +491,9 @@ export class GameRenderer {
         const v = this.views.get(ev.id);
         if (v) {
           this.squash.squash(v.visual, -0.18, 0.22); // estira al despegar
-          v.play('Jump_Idle', { fade: 0.08 });
+          if (ev.id === this.sim.player.id && v.has('Jump_Start')) {
+            v.play('Jump_Start', { once: true, fade: 0.05, timeScale: 1.6 });
+          } else v.play('Jump_Idle', { fade: 0.08 });
         }
         this.audio.play('jump');
         break;
@@ -481,6 +503,8 @@ export class GameRenderer {
         const e = this.sim.entities.find((x) => x.id === ev.id);
         const hard = ev.fallSpeed > HARD_LANDING_SPEED;
         if (v) this.squash.squash(v.visual, hard ? 0.32 : 0.16, hard ? 0.3 : 0.2);
+        // el aterrizaje duro se acompaña: rodilla al suelo
+        if (hard && ev.id === this.sim.player.id) this.gesto(ev.id, 'Jump_Land');
         if (e) {
           this.particles.burst(this.tmp.set(e.x, e.y + 0.15, e.z), {
             count: hard ? 18 : 9,
@@ -530,6 +554,7 @@ export class GameRenderer {
         break;
       }
       case 'respawned': {
+        if (ev.kind === 'player') this.gesto(ev.id, 'Spawn_Ground');
         const v = this.views.get(ev.id);
         if (v) v.play('Idle', { fade: 0 });
         this.audio.play('respawn');
@@ -643,6 +668,7 @@ export class GameRenderer {
         break;
       }
       case 'potionDrunk': {
+        this.gesto(this.sim.player.id, 'Use_Item');
         const p5 = this.sim.player;
         const v5 = this.views.get(p5.id);
         if (v5) this.flash.flash(v5.meshes, 0xff6a50, 0.12);
@@ -663,6 +689,7 @@ export class GameRenderer {
         break;
       }
       case 'lootPickedUp': {
+        this.gesto(this.sim.player.id, 'PickUp');
         const vis = this.dropVisuals.get(ev.dropId);
         if (vis) {
           this.particles.burst(vis.group.position.clone().setY(vis.group.position.y + 1), {
@@ -916,6 +943,13 @@ export class GameRenderer {
     if (oneShots.includes(playing) && speed < 1 && e.grounded) return;
 
     if (e.kind === 'player') {
+      // un gesto en curso (beber, recoger, aterrizar) manda sobre la marcha
+      // en el aire solo se respeta el impulso del salto; los demás gestos son
+      // de suelo y no deben congelar la pose al caerte
+      if (this.elapsed < this.gestoHasta && (e.grounded || v.playing() === 'Jump_Start')) {
+        v.visual.rotation.z = 0;
+        return;
+      }
       // el quiebro manda: mantiene su animación e inclina el cuerpo
       v.visual.rotation.z = e.dodgeTime > 0 ? this.dodgeLean : 0;
       if (e.dodgeTime > 0) return;
