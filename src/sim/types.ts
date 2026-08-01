@@ -14,7 +14,11 @@ export const JUMP_VELOCITY = 8.4;
 export const COYOTE_TIME = 0.1;
 export const JUMP_BUFFER_TIME = 0.12;
 export const AIR_CONTROL_ACCEL = 20; // valor heredado del kernel de WoC
-export const MAX_WALK_SLOPE = 1.15; // dy por unidad horizontal a partir del cual resbalas
+// dy por unidad horizontal a partir del cual resbalas. Subido de 1,15 a 1,9
+// con las terrazas: sus paredes rondan 1,2-1,8 y con el valor viejo el lomo se
+// volvía un tobogán — un resbalón cada veinte metros. El desplome del flanco
+// hacia la niebla pasa de 3, así que ese sigue matando igual.
+export const MAX_WALK_SLOPE = 1.9;
 export const STEEP_SLIDE_SPEED = 8;
 export const HARD_LANDING_SPEED = 14; // |vy| a partir del cual el aterrizaje es "duro"
 

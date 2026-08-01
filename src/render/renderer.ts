@@ -242,43 +242,72 @@ export class GameRenderer {
       this.views.set(m.id, v);
     }
 
-    // vegetación y wisps ambientales, deterministas de la semilla
-    const templates = { oak: [oak1, oak3], pine: [pine], bush: [bush] } as const;
+    // Vegetación: miles de piezas, así que NADA de clonar modelos. Se agrupan
+    // por tipo en un InstancedMesh cada uno — una llamada de dibujo por especie
+    // en vez de dos mil. Es lo que permite poblar el lomo de verdad.
+    const naturaleza = await loadGLB('models/nature.glb');
+    const piezas = new Map<string, THREE.Mesh>();
+    naturaleza.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      // OJO: el nombre útil es el del NODO, que GLTFLoader pone en la propia
+      // malla. Mirar al padre primero hacía que las 17 piezas se llamaran
+      // igual (el nombre de la escena) y no se instanciara ninguna.
+      const nombre = m.name || m.parent?.name || '';
+      if (!piezas.has(nombre)) piezas.set(nombre, m);
+    });
+
     const decos = generateDecorations(this.sim.seed);
-    let ti = 0;
+    const porTipo = new Map<string, typeof decos>();
     for (const d of decos) {
-      if (d.type === 'wisp') {
-        const g = wisp.scene.clone(true);
-        const mats: THREE.MeshStandardMaterial[] = [];
-        g.traverse((o) => {
-          const mesh = o as THREE.Mesh;
-          if (mesh.isMesh) {
-            const arr = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            for (const m of arr) {
-              const sm = m as THREE.MeshStandardMaterial;
-              if (sm.emissive) mats.push(sm);
-            }
-          }
-        });
-        const group = new THREE.Group();
-        g.scale.setScalar(d.scale * 1.4);
-        group.add(g);
-        group.position.set(d.x, d.y, d.z);
-        this.scene.add(group);
-        this.wisps.push({ group, baseY: d.y, phase: d.rot, mats });
-        continue;
-      }
-      const list = templates[d.type];
-      const src = list[ti++ % list.length];
-      const g = src.scene.clone(true);
+      if (d.type === 'wisp') continue;
+      const lista = porTipo.get(d.type) ?? [];
+      lista.push(d);
+      porTipo.set(d.type, lista);
+    }
+
+    const m4 = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const escala = new THREE.Vector3();
+    const pos = new THREE.Vector3();
+    for (const [tipo, lista] of porTipo) {
+      const fuente = piezas.get(tipo);
+      if (!fuente) continue;
+      const inst = new THREE.InstancedMesh(fuente.geometry, fuente.material, lista.length);
+      inst.castShadow = true;
+      inst.receiveShadow = true;
+      lista.forEach((d, i) => {
+        pos.set(d.x, d.y - 0.05, d.z);
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), d.rot);
+        escala.setScalar(d.scale);
+        inst.setMatrixAt(i, m4.compose(pos, q, escala));
+      });
+      inst.instanceMatrix.needsUpdate = true;
+      inst.frustumCulled = false; // una sola malla para todo el lomo
+      this.scene.add(inst);
+    }
+
+    // los espectros sí son pocos y se mueven: esos van sueltos
+    for (const d of decos) {
+      if (d.type !== 'wisp') continue;
+      const g = wisp.scene.clone(true);
+      const mats: THREE.MeshStandardMaterial[] = [];
       g.traverse((o) => {
         const mesh = o as THREE.Mesh;
-        if (mesh.isMesh) mesh.castShadow = true;
+        if (mesh.isMesh) {
+          const arr = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          for (const m of arr) {
+            const sm = m as THREE.MeshStandardMaterial;
+            if (sm.emissive) mats.push(sm);
+          }
+        }
       });
-      g.scale.setScalar(d.scale * (d.type === 'bush' ? 0.85 : 1.1));
-      g.rotation.y = d.rot;
-      g.position.set(d.x, d.y - 0.1, d.z);
-      this.scene.add(g);
+      const group = new THREE.Group();
+      g.scale.setScalar(d.scale * 1.4);
+      group.add(g);
+      group.position.set(d.x, d.y, d.z);
+      this.scene.add(group);
+      this.wisps.push({ group, baseY: d.y, phase: d.rot, mats });
     }
   }
 

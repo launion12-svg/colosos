@@ -16,6 +16,7 @@ const GRASS_A = new THREE.Color(0x5a9440);
 const GRASS_B = new THREE.Color(0x3f7a35);
 const ROCK = new THREE.Color(0x6e6a66);
 const ROCK_DARK = new THREE.Color(0x4a4a4c);
+const ROCK_LIGHT = new THREE.Color(0xa8a49c);
 const BONE = new THREE.Color(0xe8ddc4);
 const EDGE = new THREE.Color(0x3a3f52);
 
@@ -23,8 +24,10 @@ export function buildTerrainMesh(seed: number): THREE.Mesh {
   // margen extra para que los flancos se hundan visualmente en la niebla
   const width = COLOSSUS_WIDTH * 1.9;
   const length = COLOSSUS_LENGTH * 1.25;
-  const segX = 150;
-  const segZ = 300;
+  // Más resolución que antes: las paredes de las terrazas son estrechas y con
+  // pocos vértices salían como rampas suaves en vez de cortes.
+  const segX = 280;
+  const segZ = 560;
 
   const geo = new THREE.PlaneGeometry(width, length, segX, segZ);
   geo.rotateX(-Math.PI / 2); // plano XZ, +Y arriba
@@ -32,6 +35,7 @@ export function buildTerrainMesh(seed: number): THREE.Mesh {
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
   const c = new THREE.Color();
+  const pared = new THREE.Color();
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
@@ -45,9 +49,18 @@ export function buildTerrainMesh(seed: number): THREE.Mesh {
 
     // base: pradera con variación
     c.copy(GRASS_A).lerp(GRASS_B, n);
-    // roca en cuanto empina
-    const rockMix = THREE.MathUtils.smoothstep(steep, 0.55, 1.15);
-    c.lerp(n > 0.5 ? ROCK : ROCK_DARK, rockMix);
+    // Roca en cuanto empina: la pared de la terraza. Se le pintan estratos
+    // horizontales en función de la ALTURA, que es lo que hace que el corte
+    // parezca piedra sedimentaria y no una rampa gris.
+    // umbral bajo a propósito: la pared de una terraza ronda 0,9 de pendiente
+    // y con el umbral antiguo salía verde, como una rampa de césped
+    const rockMix = THREE.MathUtils.smoothstep(steep, 0.28, 0.72);
+    if (rockMix > 0.01) {
+      const estrato = Math.sin(y * 6.5 + n * 1.2) * 0.5 + 0.5;
+      pared.copy(ROCK).lerp(ROCK_DARK, estrato * 0.75);
+      pared.lerp(ROCK_LIGHT, Math.pow(1 - estrato, 3) * 0.5); // la veta clara
+      c.lerp(pared, rockMix);
+    }
     // hueso en las coronas de las vértebras
     c.lerp(BONE, THREE.MathUtils.smoothstep(bone, 0.35, 0.8));
     // los flancos que caen a la niebla se oscurecen

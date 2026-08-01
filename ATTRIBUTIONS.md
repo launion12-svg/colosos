@@ -20,6 +20,9 @@ Modelos tomados de la librería curada de World of ClaudeCraft, cuyos orígenes 
   `adv_axe_2handed.glb`, `bow.glb`, `shield_round.glb`) — KayKit Character
   Pack: Adventurers + KayKit Character Animations, por Kay Lousberg
   (kaylousberg.itch.io). CC0 1.0.
+- `nature.glb` (17 piezas: árboles, matorral, hierba y rocas) — **KayKit Forest
+  Nature Pack 1.0 FREE**, por Kay Lousberg. CC0 1.0. Empaquetadas en un único
+  GLB con textura compartida.
 - `wolf_basic.glb` — Quaternius (quaternius.com). CC0 1.0.
 - `duskwisp.glb` — derivado procedural del pipeline de WoC sobre kits CC0.
 - `oak_1.glb`, `oak_3.glb`, `pine_1.glb`, `bush.glb` — Quaternius Stylized

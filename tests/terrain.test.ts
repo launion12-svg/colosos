@@ -1,12 +1,14 @@
 // El terreno es una función pura: el render y el sim muestrean lo mismo.
 
 import { describe, expect, it } from 'vitest';
+import { GRAVITY, JUMP_VELOCITY } from '../src/sim/types';
 import {
   COLOSSUS_LENGTH,
   COLOSSUS_WIDTH,
   MIST_LEVEL,
   SPAWN_X,
   SPAWN_Z,
+  TERRACE_STEP,
   generateDecorations,
   terrainHeight,
   terrainSteepness,
@@ -58,7 +60,38 @@ describe('terreno del coloso', () => {
     expect(a.length).toBeGreaterThan(100);
     for (const d of a) {
       if (d.type === 'wisp') continue;
-      expect(d.y).toBeGreaterThan(0);
+      // el suelo válido ya no es "y > 0": con las terrazas hay mesetas a cota
+      // cero. Lo que no puede pasar es que algo aparezca colgando en la niebla.
+      expect(d.y).toBeGreaterThan(MIST_LEVEL + 8);
     }
+  });
+
+  it('el lomo es una escalera: mesetas planas y anchas, no una loma lisa', () => {
+    // recorre una línea larga por el lomo y mide cuánto de plano hay
+    let iguales = 0;
+    let muestras = 0;
+    let alturas = new Set<string>();
+    for (let z = -140; z < 140; z += 0.5) {
+      const h0 = terrainHeight(6, z, SEED);
+      const h1 = terrainHeight(6, z + 0.5, SEED);
+      muestras++;
+      if (Math.abs(h1 - h0) < 0.01) iguales++;
+      alturas.add(h0.toFixed(3));
+      // y cada meseta está a un múltiplo del escalón
+      if (Math.abs(h1 - h0) < 0.01) {
+        const k = h0 / TERRACE_STEP;
+        expect(Math.abs(k - Math.round(k))).toBeLessThan(0.02);
+      }
+    }
+    // la mayor parte del recorrido es meseta plana, no cuesta
+    expect(iguales / muestras).toBeGreaterThan(0.6);
+    // pero hay varios niveles distintos: si no, sería una mesa de billar
+    expect(alturas.size).toBeGreaterThan(4);
+  });
+
+  it('los escalones se pueden subir de un salto', () => {
+    // la altura que gana un salto: v² / 2g
+    const alturaSalto = (JUMP_VELOCITY * JUMP_VELOCITY) / (2 * GRAVITY);
+    expect(TERRACE_STEP).toBeLessThan(alturaSalto);
   });
 });

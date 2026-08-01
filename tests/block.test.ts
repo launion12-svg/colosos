@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { isBlockedHit } from '../src/sim/combat';
 import { Sim } from '../src/sim/sim';
+import { terrainHeight, terrainSteepness } from '../src/sim/terrain';
 import {
   BLOCK_DAMAGE_MULT,
   BLOCK_MOVE_MULT,
@@ -19,6 +20,18 @@ const move = (over: Partial<MoveInput> = {}): MoveInput => ({ ...IDLE_INPUT, ...
 function fakeEntity(over: Partial<Entity>): Entity {
   const s = new Sim(1);
   return { ...s.player, ...over };
+}
+
+// busca un trozo de meseta plana cerca del centro del lomo
+function llano(s: Sim): { x: number; z: number } {
+  for (let z = -120; z < 120; z += 3) {
+    for (let x = -20; x <= 20; x += 3) {
+      if (terrainSteepness(x, z, s.seed) < 0.05 && terrainHeight(x, z, s.seed) > 2) {
+        return { x, z };
+      }
+    }
+  }
+  return { x: 0, z: 0 };
 }
 
 describe('bloqueo con escudo', () => {
@@ -67,6 +80,10 @@ describe('bloqueo con escudo', () => {
 
   it('bloquear frena el movimiento', () => {
     const s = new Sim(1);
+    // en llano: si el test empieza sobre la pared de una terraza, lo que mide
+    // es el resbalón y no el escudo
+    s.player.x = llano(s).x;
+    s.player.z = llano(s).z;
     for (let t = 0; t < 40; t++) s.tick(move({ moveZ: 1, block: true }));
     const speed = Math.hypot(s.player.vx, s.player.vz);
     expect(speed).toBeLessThanOrEqual(RUN_SPEED * BLOCK_MOVE_MULT + 1e-9);
