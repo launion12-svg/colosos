@@ -81,9 +81,26 @@ async function boot(): Promise<void> {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyM' && !e.repeat) {
       const m = audio.toggleMute();
+      document.getElementById('music-box')?.classList.toggle('mute', m);
       hud.toast(m ? 'Sonido apagado (M)' : 'Sonido encendido (M)', 1600);
     }
   });
+  // barra de volumen de la música, con memoria entre partidas
+  const volEl = document.getElementById('music-vol') as HTMLInputElement | null;
+  if (volEl) {
+    const guardado = Number(localStorage.getItem('colosos.musicaVol') ?? '55');
+    volEl.value = String(Number.isFinite(guardado) ? guardado : 55);
+    audio.setMusicVolume(Number(volEl.value) / 100);
+    volEl.addEventListener('input', () => {
+      audio.setMusicVolume(Number(volEl.value) / 100);
+      try {
+        localStorage.setItem('colosos.musicaVol', volEl.value);
+      } catch {
+        /* sin almacenamiento: el volumen vale para esta partida */
+      }
+      audio.unlock(); // tocar la barra ya es gesto suficiente para arrancar
+    });
+  }
   const input = new InputReader(canvas);
   const renderer = new GameRenderer(gl, sim, audio, hud, defA, defB);
 
@@ -166,8 +183,9 @@ async function boot(): Promise<void> {
     renderer.camPitch = input.camPitch;
     renderer.camDist = input.camDist;
     renderer.update(dt, acc / DT);
-    // la música respira con el reloj del mundo: de noche baja de tono
-    audio.updateMusic(realDt, sim.timeOfDay < 0.24 || sim.timeOfDay > 0.78);
+    // la música sigue al combate: el sim ya sabe si estás peleando
+    audio.setCombat(sim.player.combatTimer > 0 && sim.player.alive);
+    audio.updateMusic(realDt);
     hud.update(sim.player, sim.mobs(), sim.timeOfDay);
   }
   requestAnimationFrame(frame);

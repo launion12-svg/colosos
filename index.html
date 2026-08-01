@@ -203,6 +203,27 @@
     }
     .inv-grid .inv-cell { margin: 0; }
     .inv-hint { margin-top: 10px; font-size: 9.5px; color: #8a8fa8; line-height: 1.5; text-align: center; }
+    /* --- volumen de la música --- */
+    #music-box {
+      position: absolute; right: 14px; top: 148px; pointer-events: auto;
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(16, 18, 34, 0.9); border: 1px solid #6a5a3a; border-radius: 6px;
+      padding: 6px 10px;
+    }
+    #music-icon { font-size: 13px; color: #c8b46a; line-height: 1; }
+    #music-box.mute #music-icon { color: #6a6458; }
+    #music-vol {
+      -webkit-appearance: none; appearance: none; width: 92px; height: 4px;
+      background: #3a3426; border-radius: 3px; outline: none; cursor: pointer;
+    }
+    #music-vol::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 12px; height: 12px;
+      border-radius: 50%; background: #ffd35c; border: 1px solid #7a6432; cursor: pointer;
+    }
+    #music-vol::-moz-range-thumb {
+      width: 12px; height: 12px; border-radius: 50%; background: #ffd35c;
+      border: 1px solid #7a6432; cursor: pointer;
+    }
     /* --- continuar partida --- */
     #continue-prompt {
       position: fixed; inset: 0; z-index: 20; display: flex;

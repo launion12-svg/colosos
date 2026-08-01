@@ -144,6 +144,7 @@ export class AudioSink {
   // Se llama desde el primer clic/tecla del jugador (política de autoplay)
   unlock(): void {
     this.ensure();
+    this.startMusic();
   }
 
   setMuted(v: boolean): boolean {
@@ -220,47 +221,99 @@ export class AudioSink {
     window.setTimeout(() => (this.sonando = Math.max(0, this.sonando - 1)), maxDur * 1000);
   }
 
-  // --- Música ambiental ---
-  // Un pad lento de tres voces sobre una escala menor: notas largas que se
-  // solapan. No es una melodía, es el zumbido del coloso caminando; de noche
-  // baja de tono. Se genera sola, así que nunca se repite igual.
-  updateMusic(dt: number, esDeNoche: boolean): void {
-    if (this.muted) return;
-    const ctx = this.ctx;
-    if (!ctx || !this.musica) return;
-    this.musicaTimer -= dt;
-    if (this.musicaTimer > 0) return;
-    this.musicaTimer = 3.6 + Math.random() * 2.4;
-    const raiz = esDeNoche ? 55 : 73.42; // La1 de noche, Re2 de día
-    const escala = [0, 3, 5, 7, 10, 12, 15]; // menor pentatónica ampliada
-    const t0 = ctx.currentTime;
-    const voces = 2 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < voces; i++) {
-      const semis = escala[Math.floor(Math.random() * escala.length)] + (i === 0 ? 0 : 12);
-      const f = raiz * Math.pow(2, semis / 12);
-      const dur = 4 + Math.random() * 3;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(esDeNoche ? 0.05 : 0.038, t0 + 1.4);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      const filtro = ctx.createBiquadFilter();
-      filtro.type = 'lowpass';
-      filtro.frequency.value = esDeNoche ? 700 : 1100;
-      const osc = ctx.createOscillator();
-      osc.type = i === 0 ? 'sine' : 'triangle';
-      osc.frequency.value = f;
-      // dos detunes juntos dan cuerpo sin sonar a sintetizador barato
-      const osc2 = ctx.createOscillator();
-      osc2.type = 'sine';
-      osc2.frequency.value = f * 1.005;
-      osc.connect(g);
-      osc2.connect(g);
-      g.connect(filtro);
-      filtro.connect(this.musica);
-      osc.start(t0);
-      osc2.start(t0);
-      osc.stop(t0 + dur);
-      osc2.stop(t0 + dur);
+  // --- Música ---
+  // Dos temas reales que se cruzan: el de explorar y el de combate. En vez de
+  // cortar uno y arrancar el otro, ambos suenan siempre y lo que cambia es el
+  // volumen, con rampas suaves. Entrar en combate no interrumpe: sube.
+  private explorar: HTMLAudioElement | null = null;
+  private combate: HTMLAudioElement | null = null;
+  private volExplorar = 0;
+  private volCombate = 0;
+  private enCombate = false;
+  private musicaVol = 0.55; // el que mueve el jugador con la barra
+  private arrancada = false;
+  private primeraEntrada = true; // la primera vez el tema de explorar entra susurrando
+
+  // Rampas, en segundos. La de entrada al principio es larga a propósito:
+  // el tema de explorar entra susurrando y crece.
+  private static readonly ENTRADA_INICIAL = 8;
+  private static readonly ENTRADA_COMBATE = 3.5;
+  private static readonly SALIDA_COMBATE = 3;
+
+  private startMusic(): void {
+    if (this.arrancada) return;
+    this.arrancada = true;
+    const base = (import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './';
+    const crear = (archivo: string): HTMLAudioElement => {
+      const el = new Audio(`${base}music/${archivo}`);
+      el.loop = true;
+      el.preload = 'auto';
+      el.volume = 0;
+      void el.play().catch(() => {
+        /* el navegador aún no deja: sonará en cuanto el jugador toque algo */
+      });
+      return el;
+    };
+    this.explorar = crear('explorar.mp3');
+    this.combate = crear('combate.mp3');
+  }
+
+  // Llamado por el bucle principal: el sim dice si hay pelea, aquí solo se
+  // mueven volúmenes hacia su destino.
+  setCombat(v: boolean): void {
+    if (v === this.enCombate) return;
+    this.enCombate = v;
+    // si el tema de combate estaba del todo apagado, empieza por el principio:
+    // así cada pelea arranca con su golpe de entrada
+    if (v && this.combate && this.volCombate < 0.02) {
+      try {
+        this.combate.currentTime = 0;
+      } catch {
+        /* algunos navegadores se quejan si aún no ha cargado: da igual */
+      }
     }
   }
+
+  setMusicVolume(v: number): number {
+    this.musicaVol = Math.max(0, Math.min(1, v));
+    return this.musicaVol;
+  }
+
+  get musicVolume(): number {
+    return this.musicaVol;
+  }
+
+  updateMusic(dt: number): void {
+    if (!this.arrancada) return;
+    const objetivoExplorar = this.muted ? 0 : this.enCombate ? 0 : this.musicaVol;
+    const objetivoCombate = this.muted ? 0 : this.enCombate ? this.musicaVol : 0;
+    // cada rampa tiene su prisa: entrar en combate es más rápido que salir
+    const subeC = AudioSink.ENTRADA_COMBATE;
+    const bajaC = AudioSink.SALIDA_COMBATE;
+    // OJO: la rampa larga del arranque tiene que durar TODA la subida, no
+    // solo el primer frame (que era el fallo: se apagaba al segundo tick)
+    const subeE = this.primeraEntrada && !this.enCombate ? AudioSink.ENTRADA_INICIAL : bajaC;
+    this.volExplorar = mover(this.volExplorar, objetivoExplorar, dt, subeE);
+    this.volCombate = mover(this.volCombate, objetivoCombate, dt, this.enCombate ? subeC : bajaC);
+    if (this.primeraEntrada && (this.volExplorar >= objetivoExplorar - 0.001 || this.enCombate)) {
+      this.primeraEntrada = false;
+    }
+    if (this.explorar) this.explorar.volume = clamp01(this.volExplorar);
+    if (this.combate) this.combate.volume = clamp01(this.volCombate);
+    // los navegadores pausan el audio si la pestaña estuvo oculta
+    if (this.explorar?.paused) void this.explorar.play().catch(() => {});
+    if (this.combate?.paused) void this.combate.play().catch(() => {});
+  }
+}
+
+// avance lineal hacia un objetivo en `segundos` para recorrer todo el rango
+function mover(actual: number, objetivo: number, dt: number, segundos: number): number {
+  const paso = dt / Math.max(0.05, segundos);
+  if (actual < objetivo) return Math.min(objetivo, actual + paso);
+  if (actual > objetivo) return Math.max(objetivo, actual - paso);
+  return actual;
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
 }

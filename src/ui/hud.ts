@@ -106,6 +106,10 @@ export class Hud {
       <button id="talent-btn" class="ornate ornate-soft" title="Árbol de talentos (T)">
         Talentos<span id="talent-badge" class="hidden">0</span>
       </button>
+      <div id="music-box" class="ornate ornate-soft" title="Volumen de la música">
+        <span id="music-icon">♪</span>
+        <input id="music-vol" type="range" min="0" max="100" step="1" value="55" />
+      </div>
       <div id="toast" class="hidden"></div>
       <div id="fct-container"></div>
       <div id="help">WASD moverte · Shift esprintar · Espacio saltar · Click izq / J atacar · 1 / 2: habilidades · Q: poción${blockHint} · C: descansar · T: talentos · M: sonido · Rueda: zoom · I: inventario · F: pantalla completa</div>
