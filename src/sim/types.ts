@@ -83,6 +83,12 @@ export const MOB_EVADE_SPEED_MULT = 1.35;
 export const MOB_RESPAWN_TIME = 12;
 export const MOB_XP_REWARD = 15;
 
+// --- Pociones (el único consumible: curan un pellizco gordo y tienen freno) ---
+export const POTION_MAX = 5;
+export const POTION_HEAL_PCT = 0.4; // del máximo de vida
+export const POTION_COOLDOWN = 12;
+export const POTION_DROP_CHANCE = 0.24;
+
 // --- Mundo ---
 export const DAY_LENGTH_SECONDS = 240;
 export const START_TIME_OF_DAY = 0.32; // media mañana
@@ -169,6 +175,8 @@ export interface Entity {
   talents: Record<string, Record<string, number>>;
   weaponLevel: Record<string, number>;
   weaponXp: Record<string, number>;
+  potions: number;
+  potionCooldown: number;
   stamina: number;
   staminaDelay: number;
   winded: boolean; // vació la barra: no esprinta hasta recuperar el mínimo
@@ -188,6 +196,7 @@ export interface MoveInput {
   ability2: boolean; // flanco: la segunda habilidad, si el árbol la ha abierto (tecla 2)
   sprint: boolean; // mantenido: esprintar (Shift)
   swap: boolean; // flanco: cambiar de set de arma (tecla X)
+  drink: boolean; // flanco: beber poción (tecla Q)
 }
 
 export const IDLE_INPUT: MoveInput = {
@@ -201,6 +210,7 @@ export const IDLE_INPUT: MoveInput = {
   ability2: false,
   sprint: false,
   swap: false,
+  drink: false,
 };
 
 // Hechos ocurridos, en pasado: el render/HUD/audio los consumen para el juice.
@@ -231,6 +241,9 @@ export type SimEvent =
   | { type: 'talentSpent'; setId: string; nodeId: string; rank: number }
   | { type: 'talentsReset'; setId: string; points: number }
   | { type: 'weaponXpGained'; setId: string; amount: number }
+  | { type: 'potionDropped'; dropId: number; x: number; y: number; z: number }
+  | { type: 'potionPickedUp'; dropId: number; total: number; lleno: boolean }
+  | { type: 'potionDrunk'; amount: number; quedan: number }
   | { type: 'weaponLeveledUp'; setId: string; level: number }
   | { type: 'jumped'; id: number }
   | { type: 'landed'; id: number; fallSpeed: number }

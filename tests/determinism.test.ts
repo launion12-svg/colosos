@@ -19,6 +19,7 @@ function scriptedInput(tick: number): MoveInput {
     ability2: phase % 61 === 0, // y la segunda, cuando el árbol la haya abierto
     sprint: phase >= 60 && phase < 90, // y el esprint con su energía
     swap: phase % 97 === 0, // y el cambio de set
+    drink: phase % 53 === 0, // y beber poción
   };
 }
 

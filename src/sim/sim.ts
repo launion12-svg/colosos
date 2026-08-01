@@ -51,6 +51,10 @@ import {
   MOB_XP_REWARD,
   PLAYER_MAX_HP,
   PLAYER_RESPAWN_TIME,
+  POTION_COOLDOWN,
+  POTION_DROP_CHANCE,
+  POTION_HEAL_PCT,
+  POTION_MAX,
   STAMINA_MAX,
   START_TIME_OF_DAY,
   playerDamageMax,
@@ -134,6 +138,8 @@ function baseEntity(id: number, kind: EntityKind, name: string): Entity {
     talents: {},
     weaponLevel: {},
     weaponXp: {},
+    potions: 0,
+    potionCooldown: 0,
     stamina: STAMINA_MAX,
     staminaDelay: 0,
     winded: false,
@@ -156,6 +162,7 @@ export class Sim {
 
   readonly projectiles: Projectile[] = [];
   readonly drops: WeaponDrop[] = [];
+  readonly potionDrops: { id: number; x: number; y: number; z: number }[] = [];
   private nextProjectileId = 1;
   private nextDropId = 1;
   private dashHitIds = new Set<number>();
@@ -380,6 +387,35 @@ export class Sim {
         this.killPlayer();
       }
 
+      // pociones: se recogen pisándolas y se beben con Q. Curan un pellizco
+      // gordo pero con freno largo: sacan de un apuro, no sustituyen a jugar bien.
+      p.potionCooldown = Math.max(0, p.potionCooldown - DT);
+      for (let i = this.potionDrops.length - 1; i >= 0; i--) {
+        const d = this.potionDrops[i];
+        if (dist2d(p.x, p.z, d.x, d.z) > LOOT_PICKUP_RADIUS) continue;
+        const lleno = p.potions >= POTION_MAX;
+        if (!lleno) p.potions++;
+        if (lleno) continue; // la dejas en el suelo hasta que te haga falta
+        this.potionDrops.splice(i, 1);
+        this.emit({ type: 'potionPickedUp', dropId: d.id, total: p.potions, lleno });
+      }
+      if (
+        input.drink &&
+        p.potions > 0 &&
+        p.potionCooldown <= 0 &&
+        p.hp < p.maxHp &&
+        p.alive &&
+        p.attackWindup <= 0
+      ) {
+        const cura = Math.max(1, Math.floor(p.maxHp * POTION_HEAL_PCT));
+        const antes = p.hp;
+        p.hp = Math.min(p.maxHp, p.hp + cura);
+        p.potions--;
+        p.potionCooldown = POTION_COOLDOWN;
+        this.emit({ type: 'potionDrunk', amount: p.hp - antes, quedan: p.potions });
+        this.emit({ type: 'healed', id: p.id, amount: p.hp - antes });
+      }
+
       // recogida de armas del suelo: siempre al zurrón; si el hueco
       // secundario está vacío, además se equipa sola (el primer gran momento)
       for (let i = this.drops.length - 1; i >= 0; i--) {
@@ -561,6 +597,13 @@ export class Sim {
     for (const ev of deadMobs) {
       const m = this.entities.find((e) => e.id === ev.id);
       if (!m) continue;
+      // poción: tirada propia e independiente del arma. Sale del bicho, no del
+      // aire, así que hay que ir a por ella (y a veces la dejas para luego).
+      if (this.rng.chance(POTION_DROP_CHANCE)) {
+        const d = { id: this.nextDropId++, x: m.x + 0.6, y: m.y, z: m.z + 0.6 };
+        this.potionDrops.push(d);
+        this.emit({ type: 'potionDropped', dropId: d.id, x: d.x, y: d.y, z: d.z });
+      }
       // La tabla de botín es la del NIVEL de esta criatura, recortada a las
       // calidades que de verdad te mejoran. Un bicho de nivel 1 solo puede
       // soltar común: para él, un tipo que ya tienes no es candidato.

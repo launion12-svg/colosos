@@ -11,6 +11,7 @@ export class InputReader {
   private abilityPressed = false;
   private ability2Pressed = false;
   private swapPressed = false;
+  private drinkPressed = false;
   debugBlock = false; // para capturas/depuración: mantiene el bloqueo
   // cámara orbital controlada con el ratón
   camYaw = Math.PI; // mirando hacia +Z (la cabeza del coloso)
@@ -32,6 +33,7 @@ export class InputReader {
       if (e.code === 'Digit1') this.abilityPressed = true;
       if (e.code === 'Digit2') this.ability2Pressed = true;
       if (e.code === 'KeyX') this.swapPressed = true;
+      if (e.code === 'KeyQ') this.drinkPressed = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
@@ -97,12 +99,14 @@ export class InputReader {
       ability2: this.ability2Pressed,
       sprint: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'),
       swap: this.swapPressed,
+      drink: this.drinkPressed,
     };
     this.jumpPressed = false;
     this.attackPressed = false;
     this.abilityPressed = false;
     this.ability2Pressed = false;
     this.swapPressed = false;
+    this.drinkPressed = false;
     return out;
   }
 }

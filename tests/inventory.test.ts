@@ -2,6 +2,7 @@
 // sustituye el hueco guardado, jamás la mano.
 
 import { describe, expect, it } from 'vitest';
+import { CLASS_ABILITY } from '../src/sim/abilities';
 import { Sim } from '../src/sim/sim';
 import { IDLE_INPUT, type MoveInput, type SimEvent } from '../src/sim/types';
 
@@ -116,7 +117,10 @@ describe('inventario y zurrón', () => {
 
   it('los drops nunca duplican nada del zurrón', () => {
     const s = new Sim(11, { setA: 'medula', setB: 'fumarel' });
-    s.player.ownedWeapons.push('vigia', 'cordelero'); // zurrón completo
+    // zurrón completo: todas las armas del juego, leídas del catálogo, y con
+    // su calidad registrada (tener el tipo es lo que impide el duplicado)
+    s.player.ownedWeapons = Object.keys(CLASS_ABILITY);
+    s.player.weaponRarity = Object.fromEntries(s.player.ownedWeapons.map((id) => [id, 0]));
     const events = killFirstMob(s);
     expect(events.some((e) => e.type === 'lootDropped')).toBe(false);
   });

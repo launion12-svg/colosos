@@ -74,6 +74,16 @@ async function boot(): Promise<void> {
   const hudSets = defB ? [setInfo(defA.id), setInfo(defB.id)] : [setInfo(defA.id)];
   const hud = new Hud(hudRoot, playerName, hudSets);
   const audio = new AudioSink();
+  // política de autoplay: nada suena hasta que el jugador toca algo
+  const desbloquear = () => audio.unlock();
+  window.addEventListener('pointerdown', desbloquear, { once: true });
+  window.addEventListener('keydown', desbloquear, { once: true });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyM' && !e.repeat) {
+      const m = audio.toggleMute();
+      hud.toast(m ? 'Sonido apagado (M)' : 'Sonido encendido (M)', 1600);
+    }
+  });
   const input = new InputReader(canvas);
   const renderer = new GameRenderer(gl, sim, audio, hud, defA, defB);
 
@@ -127,6 +137,7 @@ async function boot(): Promise<void> {
           renderer.onSimEvent(ev);
           if (ev.type === 'lootPickedUp' || ev.type === 'weaponEquipped') inventory.refresh();
           if (ev.type === 'weaponLeveledUp') {
+            audio.play('mastery');
             const arma = classById(ev.setId)?.nombre ?? ev.setId;
             hud.toast(`Maestría de ${arma} · nivel ${ev.level} — tienes un punto de talento (T)`);
           }
@@ -155,6 +166,8 @@ async function boot(): Promise<void> {
     renderer.camPitch = input.camPitch;
     renderer.camDist = input.camDist;
     renderer.update(dt, acc / DT);
+    // la música respira con el reloj del mundo: de noche baja de tono
+    audio.updateMusic(realDt, sim.timeOfDay < 0.24 || sim.timeOfDay > 0.78);
     hud.update(sim.player, sim.mobs(), sim.timeOfDay);
   }
   requestAnimationFrame(frame);
@@ -208,6 +221,7 @@ async function boot(): Promise<void> {
           ability2: false,
           sprint: false,
           swap: false,
+          drink: false,
           ...inp,
         });
         for (const ev of events) renderer.onSimEvent(ev);

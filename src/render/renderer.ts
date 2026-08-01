@@ -112,6 +112,7 @@ export class GameRenderer {
   private setDefs = new Map<string, ClassDef>();
   private activeDef: ClassDef;
   private initialSets: string[];
+  private potionVisuals = new Map<number, THREE.Group>();
   private dropVisuals = new Map<number, { group: THREE.Group; weapon: THREE.Object3D }>();
 
   constructor(
@@ -377,6 +378,11 @@ export class GameRenderer {
 
   // Traduce los hechos del sim a juice. Cada evento con impacto: feedback en
   // el objeto, en la cámara, en el tiempo y hook de audio.
+  // Para las capturas: la plantilla del bestiario de una especie
+  bestiarioDe(id: string) {
+    return BESTIARY[id];
+  }
+
   onSimEvent(ev: SimEvent): void {
     const player = this.sim.player;
     switch (ev.type) {
@@ -531,6 +537,63 @@ export class GameRenderer {
         const p = this.sim.player;
         this.damageNumbers.spawn(this.tmp.set(p.x, p.y + 2, p.z), `+${ev.amount} px`, 'xp');
         this.audio.play('xp');
+        break;
+      }
+      case 'potionDropped': {
+        // frasco simple: cristal rojo con tapón. Se lee a distancia y no
+        // cuesta un modelo nuevo
+        const g = new THREE.Group();
+        const cuerpo = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22, 10, 8),
+          new THREE.MeshStandardMaterial({
+            color: 0xd8342a,
+            emissive: 0x8a1810,
+            emissiveIntensity: 0.7,
+            roughness: 0.35,
+          }),
+        );
+        cuerpo.position.y = 0.24;
+        const cuello = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.07, 0.09, 0.16, 8),
+          new THREE.MeshStandardMaterial({ color: 0xc8b48a, roughness: 0.8 }),
+        );
+        cuello.position.y = 0.46;
+        g.add(cuerpo, cuello);
+        g.position.set(ev.x, ev.y, ev.z);
+        this.scene.add(g);
+        this.potionVisuals.set(ev.dropId, g);
+        this.audio.play('loot_drop');
+        break;
+      }
+      case 'potionPickedUp': {
+        const g = this.potionVisuals.get(ev.dropId);
+        if (g) {
+          this.particles.burst(g.position.clone().setY(g.position.y + 0.5), {
+            count: 14,
+            color: 0xff6a50,
+            speed: 4,
+            life: 0.4,
+            gravity: 4,
+          });
+          this.scene.remove(g);
+          this.potionVisuals.delete(ev.dropId);
+        }
+        this.audio.play('loot_pickup');
+        break;
+      }
+      case 'potionDrunk': {
+        const p5 = this.sim.player;
+        const v5 = this.views.get(p5.id);
+        if (v5) this.flash.flash(v5.meshes, 0xff6a50, 0.12);
+        this.particles.burst(this.tmp.set(p5.x, p5.y + 1, p5.z), {
+          count: 22,
+          color: 0xff8a70,
+          speed: 3,
+          life: 0.5,
+          gravity: -2,
+          up: 0.6,
+        });
+        this.audio.play('potion');
         break;
       }
       case 'lootDropped': {
