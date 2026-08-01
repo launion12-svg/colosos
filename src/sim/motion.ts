@@ -104,7 +104,9 @@ export function stepPlayerMotion(
 
   // Encara la dirección de marcha (la hitbox del golpe cuelga del yaw).
   // Bloqueando NO: el escudo apunta a la amenaza (el sim encara al enemigo).
-  if (wants && !p.blocking) p.yaw = Math.atan2(wishX, wishZ);
+  // con marcha lateral el yaw lo manda el input, no la dirección de marcha
+  if (inp.faceYaw !== null && !p.blocking) p.yaw = inp.faceYaw;
+  else if (wants && !p.blocking) p.yaw = Math.atan2(wishX, wishZ);
 
   // --- Buffers de salto ---
   p.jumpBuffer = inp.jump ? JUMP_BUFFER_TIME : Math.max(0, p.jumpBuffer - DT);

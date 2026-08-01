@@ -85,9 +85,9 @@ export class Hud {
                <span class="slot-key">Esp</span>
                <div id="dodge-cd"></div>
              </div>
-             <div class="slot ornate ornate-slot" id="slot-potion" title="Beber poción (Q)">
+             <div class="slot ornate ornate-slot" id="slot-potion" title="Beber poción (R)">
                <span class="slot-glyph potion-glyph">🜹</span>
-               <span class="slot-key">Q</span>
+               <span class="slot-key">R</span>
                <span class="potion-count" id="potion-count">0</span>
                <div id="potion-cd"></div>
              </div>
@@ -127,7 +127,7 @@ export class Hud {
       </div>
       <div id="toast" class="hidden"></div>
       <div id="fct-container"></div>
-      <div id="help">WASD moverte · Shift esprintar · Espacio saltar (en movimiento: esquivar) · Click izq / J atacar · 1 / 2: habilidades · Q: poción${blockHint} · C: descansar · T: talentos · M: sonido · Rueda: zoom · I: inventario · F: pantalla completa</div>
+      <div id="help">WASD moverte · Q/E de lado sin girarte · Shift esprintar · Espacio saltar (en movimiento: esquivar) · Click izq / J atacar · 1 / 2: habilidades · R: poción${blockHint} · C: descansar · T: talentos · M: sonido · Rueda: zoom · I: inventario · F: pantalla completa</div>
     `;
     this.playerHpFill = root.querySelector('#php-fill')!;
     this.playerHpText = root.querySelector('#php-text')!;

@@ -221,6 +221,10 @@ export interface MoveInput {
   swap: boolean; // flanco: cambiar de set de arma (tecla X)
   drink: boolean; // flanco: beber poción (tecla Q)
   sit: boolean; // flanco: sentarse a descansar (tecla C)
+  // Si no es null, el personaje mira SIEMPRE hacia este ángulo en vez de hacia
+  // donde anda. Es lo que hace que moverse de lado con Q/E no te dé la espalda
+  // al enemigo (y que esquivar de lado siga mirándolo).
+  faceYaw: number | null;
 }
 
 export const IDLE_INPUT: MoveInput = {
@@ -236,6 +240,7 @@ export const IDLE_INPUT: MoveInput = {
   swap: false,
   drink: false,
   sit: false,
+  faceYaw: null,
 };
 
 // Hechos ocurridos, en pasado: el render/HUD/audio los consumen para el juice.

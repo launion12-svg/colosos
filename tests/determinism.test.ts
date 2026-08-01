@@ -21,6 +21,8 @@ function scriptedInput(tick: number): MoveInput {
     swap: phase % 97 === 0, // y el cambio de set
     drink: phase % 53 === 0, // y beber poción
     sit: phase % 71 === 0, // y sentarse a descansar
+    // marcha lateral encarada: el yaw pasa a mandarlo el input
+    faceYaw: phase >= 120 && phase < 150 ? 1.2 : null,
   };
 }
 

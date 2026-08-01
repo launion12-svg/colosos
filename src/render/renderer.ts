@@ -593,8 +593,8 @@ export class GameRenderer {
         const sn = Math.sin(rel);
         let anim = 'Running_A';
         if (c < -0.4) anim = v7?.has('Walking_Backwards') ? 'Walking_Backwards' : 'Running_A';
-        else if (sn > 0.4) anim = 'Running_Strafe_Right';
-        else if (sn < -0.4) anim = 'Running_Strafe_Left';
+        else if (sn < -0.4) anim = 'Running_Strafe_Right';
+        else if (sn > 0.4) anim = 'Running_Strafe_Left';
         if (v7?.has(anim)) v7.play(anim, { fade: 0.04, timeScale: 1.9 });
         this.dodgeLean = sn * 0.5; // se inclina hacia donde salta
         this.particles.burst(this.tmp.set(p7.x, p7.y + 0.15, p7.z), {
@@ -935,10 +935,34 @@ export class GameRenderer {
         v.play('Block', { fade: 0.08 });
         return;
       }
+      // La animación se elige por la dirección REAL de la marcha respecto a
+      // donde mira: andando de lado con Q/E se ve el paso lateral, y yendo
+      // hacia atrás con S se anda hacia atrás, en vez de correr de espaldas.
+      const rel = Math.atan2(e.vx, e.vz) - e.yaw;
+      const haciaDelante = Math.cos(rel);
+      const haciaElLado = Math.sin(rel);
+      // OJO: en este juego la derecha de la cámara es (-cos, sin), así que un
+      // seno NEGATIVO del ángulo relativo es moverse hacia la derecha. Con el
+      // signo al revés el muñeco andaba de lado mirando al lado contrario.
+      const lateral =
+        haciaElLado < -0.5
+          ? 'Running_Strafe_Right'
+          : haciaElLado > 0.5
+            ? 'Running_Strafe_Left'
+            : null;
       if (!e.grounded) v.play('Jump_Idle', { fade: 0.12 });
-      else if (speed > 5) v.play('Running_A', { fade: 0.12, timeScale: e.sprinting ? 1.3 : 1 });
-      else if (speed > 0.4) v.play('Walking_A', { fade: 0.12 });
-      else v.play('Idle', { fade: 0.18 });
+      else if (speed > 5) {
+        const ts = e.sprinting ? 1.3 : 1;
+        if (haciaDelante < -0.4 && v.has('Walking_Backwards')) {
+          v.play('Walking_Backwards', { fade: 0.12, timeScale: 1.7 });
+        } else if (lateral && v.has(lateral)) v.play(lateral, { fade: 0.12, timeScale: ts });
+        else v.play('Running_A', { fade: 0.12, timeScale: ts });
+      } else if (speed > 0.4) {
+        if (haciaDelante < -0.4 && v.has('Walking_Backwards')) {
+          v.play('Walking_Backwards', { fade: 0.12 });
+        } else if (lateral && v.has(lateral)) v.play(lateral, { fade: 0.14, timeScale: 0.75 });
+        else v.play('Walking_A', { fade: 0.12 });
+      } else v.play('Idle', { fade: 0.18 });
     } else {
       const t = BESTIARY[e.templateId];
       if (!t) return;

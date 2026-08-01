@@ -107,6 +107,35 @@ describe('esquiva', () => {
     expect(s.player.invuln).toBe(0);
   });
 
+  it('marcha lateral: te mueves de lado sin dejar de mirar al frente', () => {
+    const s = new Sim(17, { setA: 'medula' });
+    lejosDeTodo(s);
+    s.player.yaw = 0; // mirando a +Z
+    const x0 = s.player.x;
+    // moverse hacia +X encarando +Z, que es lo que manda Q/E
+    for (let t = 0; t < 10; t++) s.tick(move({ moveX: 1, faceYaw: 0 }));
+    expect(s.player.x - x0).toBeGreaterThan(1.5); // se ha desplazado de lado
+    expect(s.player.yaw).toBe(0); // y sigue mirando al frente
+  });
+
+  it('sin encaramiento forzado, el personaje sí se gira hacia donde anda', () => {
+    const s = new Sim(17, { setA: 'medula' });
+    lejosDeTodo(s);
+    s.player.yaw = 0;
+    for (let t = 0; t < 10; t++) s.tick(move({ moveX: 1 }));
+    expect(Math.abs(s.player.yaw)).toBeCloseTo(Math.PI / 2, 1); // mira a +X
+  });
+
+  it('esquivar de lado con la marcha lateral mantiene la cara al enemigo', () => {
+    const s = new Sim(17, { setA: 'medula' });
+    lejosDeTodo(s);
+    s.player.yaw = 0;
+    const evs = s.tick(move({ jump: true, moveX: 1, faceYaw: 0 }));
+    expect(evs.some((e) => e.type === 'dodged')).toBe(true);
+    for (let t = 0; t < 6; t++) s.tick(move({ moveX: 1, faceYaw: 0 }));
+    expect(s.player.yaw).toBe(0);
+  });
+
   it('no se esquiva a media estocada ni en el aire', () => {
     const s = new Sim(17, { setA: 'medula' });
     lejosDeTodo(s);

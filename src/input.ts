@@ -34,7 +34,7 @@ export class InputReader {
       if (e.code === 'Digit1') this.abilityPressed = true;
       if (e.code === 'Digit2') this.ability2Pressed = true;
       if (e.code === 'KeyX') this.swapPressed = true;
-      if (e.code === 'KeyQ') this.drinkPressed = true;
+      if (e.code === 'KeyR') this.drinkPressed = true; // la Q pasó a marcha lateral
       if (e.code === 'KeyC') this.sitPressed = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -81,14 +81,19 @@ export class InputReader {
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) fwd -= 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) strafe += 1;
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) strafe -= 1;
+    // Q y E: lo mismo de lado, pero SIN girarse. Sumadas a A/D para poder
+    // combinar (W+E = diagonal adelante-derecha mirando al frente).
+    let lateral = 0;
+    if (this.keys.has('KeyE')) lateral += 1;
+    if (this.keys.has('KeyQ')) lateral -= 1;
 
     // dirección en mundo relativa al yaw de la cámara
     const sin = Math.sin(this.camYaw);
     const cos = Math.cos(this.camYaw);
     // forward de la cámara (aplanado) = (sin, cos); su derecha = (-cos, sin)
     // (cross de forward con el up +Y en mano derecha)
-    const moveX = sin * fwd - cos * strafe;
-    const moveZ = cos * fwd + sin * strafe;
+    const moveX = sin * fwd - cos * (strafe + lateral);
+    const moveZ = cos * fwd + sin * (strafe + lateral);
 
     const out: MoveInput = {
       moveX,
@@ -103,6 +108,8 @@ export class InputReader {
       swap: this.swapPressed,
       drink: this.drinkPressed,
       sit: this.sitPressed,
+      // mientras haya marcha lateral, mira a donde mira la cámara
+      faceYaw: lateral !== 0 ? this.camYaw : null,
     };
     this.jumpPressed = false;
     this.attackPressed = false;

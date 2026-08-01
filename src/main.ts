@@ -241,6 +241,7 @@ async function boot(): Promise<void> {
           swap: false,
           drink: false,
           sit: false,
+          faceYaw: null,
           ...inp,
         });
         for (const ev of events) renderer.onSimEvent(ev);
