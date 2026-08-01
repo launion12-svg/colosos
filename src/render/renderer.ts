@@ -112,6 +112,7 @@ export class GameRenderer {
   private setDefs = new Map<string, ClassDef>();
   private activeDef: ClassDef;
   private initialSets: string[];
+  private dodgeLean = 0; // inclinación del cuerpo durante el quiebro
   private sitStartedAt = -99; // cuándo empezó el gesto de sentarse
   private potionVisuals = new Map<number, THREE.Group>();
   private dropVisuals = new Map<number, { group: THREE.Group; weapon: THREE.Object3D }>();
@@ -582,6 +583,45 @@ export class GameRenderer {
         this.audio.play('loot_pickup');
         break;
       }
+      case 'dodged': {
+        // no hay animación de rodar en ningún rig: se finge con el correr de
+        // lado (o hacia atrás), acelerado, más inclinación y polvo
+        const v7 = this.views.get(ev.id);
+        const p7 = this.sim.player;
+        const rel = Math.atan2(ev.dirX, ev.dirZ) - p7.yaw;
+        const c = Math.cos(rel);
+        const sn = Math.sin(rel);
+        let anim = 'Running_A';
+        if (c < -0.4) anim = v7?.has('Walking_Backwards') ? 'Walking_Backwards' : 'Running_A';
+        else if (sn > 0.4) anim = 'Running_Strafe_Right';
+        else if (sn < -0.4) anim = 'Running_Strafe_Left';
+        if (v7?.has(anim)) v7.play(anim, { fade: 0.04, timeScale: 1.9 });
+        this.dodgeLean = sn * 0.5; // se inclina hacia donde salta
+        this.particles.burst(this.tmp.set(p7.x, p7.y + 0.15, p7.z), {
+          count: 16,
+          color: 0xe4d3b0,
+          speed: 3.4,
+          life: 0.4,
+          gravity: 5,
+          size: 0.13,
+        });
+        this.shake.request(0.12);
+        this.audio.play('jump');
+        break;
+      }
+      case 'evaded': {
+        // el golpe pasa de largo: se ve el fallo, que es medio premio
+        this.damageNumbers.spawn(this.tmp.set(ev.x, ev.y, ev.z), 'esquivado', 'blocked');
+        this.particles.burst(this.tmp.set(ev.x, ev.y - 0.3, ev.z), {
+          count: 8,
+          color: 0xbfd8ff,
+          speed: 3,
+          life: 0.25,
+          size: 0.09,
+        });
+        this.audio.play('swing');
+        break;
+      }
       case 'sat': {
         const v6 = this.views.get(ev.id);
         this.sitStartedAt = this.elapsed;
@@ -876,6 +916,9 @@ export class GameRenderer {
     if (oneShots.includes(playing) && speed < 1 && e.grounded) return;
 
     if (e.kind === 'player') {
+      // el quiebro manda: mantiene su animación e inclina el cuerpo
+      v.visual.rotation.z = e.dodgeTime > 0 ? this.dodgeLean : 0;
+      if (e.dodgeTime > 0) return;
       // sentado: manda sobre todo lo demás hasta que se levante. Primero el
       // gesto de sentarse (una vez) y, cuando termina, el respirar sentado.
       if (e.sitting) {

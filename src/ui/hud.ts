@@ -1,7 +1,15 @@
 // HUD mínimo de F0: marco del jugador, marco del objetivo, XP, reloj del día
 // y overlay de muerte. Escucha al sim; jamás lo muta.
 
-import { MAX_LEVEL, POTION_COOLDOWN, STAMINA_MAX, xpToNext, type Entity } from '../sim/types';
+import {
+  DODGE_COOLDOWN,
+  DODGE_STAMINA_COST,
+  MAX_LEVEL,
+  POTION_COOLDOWN,
+  STAMINA_MAX,
+  xpToNext,
+  type Entity,
+} from '../sim/types';
 
 export const GLYPHS: Record<string, string> = {
   medula: '⚔',
@@ -44,6 +52,8 @@ export class Hud {
   private potionCount: HTMLElement | null = null;
   private potionCd: HTMLElement | null = null;
   private potionSlot: HTMLElement | null = null;
+  private dodgeCd: HTMLElement | null = null;
+  private dodgeSlot: HTMLElement | null = null;
   private stamFill: HTMLElement | null = null;
   private toastEl!: HTMLElement;
   private toastTimer = 0;
@@ -69,6 +79,11 @@ export class Hud {
                <span class="slot-glyph" id="slot2-glyph"></span>
                <span class="slot-key">2</span>
                <div id="slot2-cd"></div>
+             </div>
+             <div class="slot slot-small ornate ornate-slot" id="slot-dodge" title="Esquiva: Espacio en movimiento">
+               <span class="slot-glyph">↷</span>
+               <span class="slot-key">Esp</span>
+               <div id="dodge-cd"></div>
              </div>
              <div class="slot ornate ornate-slot" id="slot-potion" title="Beber poción (Q)">
                <span class="slot-glyph potion-glyph">🜹</span>
@@ -112,7 +127,7 @@ export class Hud {
       </div>
       <div id="toast" class="hidden"></div>
       <div id="fct-container"></div>
-      <div id="help">WASD moverte · Shift esprintar · Espacio saltar · Click izq / J atacar · 1 / 2: habilidades · Q: poción${blockHint} · C: descansar · T: talentos · M: sonido · Rueda: zoom · I: inventario · F: pantalla completa</div>
+      <div id="help">WASD moverte · Shift esprintar · Espacio saltar (en movimiento: esquivar) · Click izq / J atacar · 1 / 2: habilidades · Q: poción${blockHint} · C: descansar · T: talentos · M: sonido · Rueda: zoom · I: inventario · F: pantalla completa</div>
     `;
     this.playerHpFill = root.querySelector('#php-fill')!;
     this.playerHpText = root.querySelector('#php-text')!;
@@ -133,6 +148,8 @@ export class Hud {
     this.potionCount = root.querySelector('#potion-count');
     this.potionCd = root.querySelector('#potion-cd');
     this.potionSlot = root.querySelector('#slot-potion');
+    this.dodgeCd = root.querySelector('#dodge-cd');
+    this.dodgeSlot = root.querySelector('#slot-dodge');
     this.stamFill = root.querySelector('#pstam-fill');
 
     // tooltip de la habilidad al pasar el ratón por el slot
@@ -281,6 +298,14 @@ export class Hud {
       this.potionCount.textContent = String(player.potions);
       this.potionSlot.classList.toggle('empty', player.potions <= 0);
       this.potionCd.style.height = `${Math.max(0, player.potionCooldown / POTION_COOLDOWN) * 100}%`;
+    }
+    // esquiva: enfriamiento y, si no llega la energía, apagada
+    if (this.dodgeCd && this.dodgeSlot) {
+      this.dodgeCd.style.height = `${Math.max(0, player.dodgeCooldown / DODGE_COOLDOWN) * 100}%`;
+      this.dodgeSlot.classList.toggle(
+        'empty',
+        player.stamina < DODGE_STAMINA_COST || player.dodgeCooldown > 0,
+      );
     }
     // puntos de talento sin gastar: el botón lo canta
     if (this.talentBadge) {

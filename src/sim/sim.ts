@@ -55,12 +55,18 @@ import {
   SIT_REGEN_MULT,
   SIT_STAMINA_MULT,
   PLAYER_MAX_HP,
+  DODGE_COOLDOWN,
+  DODGE_IFRAMES,
+  DODGE_SPEED,
+  DODGE_STAMINA_COST,
+  DODGE_TIME,
   PLAYER_RESPAWN_TIME,
   POTION_COOLDOWN,
   POTION_DROP_CHANCE,
   POTION_HEAL_PCT,
   POTION_MAX,
   STAMINA_MAX,
+  STAMINA_REGEN_DELAY,
   START_TIME_OF_DAY,
   playerDamageMax,
   playerDamageMin,
@@ -145,6 +151,9 @@ function baseEntity(id: number, kind: EntityKind, name: string): Entity {
     weaponXp: {},
     potions: 0,
     potionCooldown: 0,
+    dodgeTime: 0,
+    dodgeCooldown: 0,
+    invuln: 0,
     combatTimer: 0,
     regenAccum: 0,
     sitting: false,
@@ -352,7 +361,51 @@ export class Sim {
       p.blocking =
         input.block && p.hasShield && p.grounded && p.attackWindup <= 0 && p.dashTime <= 0;
 
-      if (p.dashTime > 0) {
+      // Esquiva: Espacio EN MOVIMIENTO. Parado, Espacio salta como siempre.
+      // Cuesta energía (la misma barra del esprint) y no encadena.
+      p.dodgeCooldown = Math.max(0, p.dodgeCooldown - DT);
+      p.invuln = Math.max(0, p.invuln - DT);
+      const quiereMover = input.moveX !== 0 || input.moveZ !== 0;
+      let inputEfectivo = input;
+      if (
+        input.jump &&
+        quiereMover &&
+        p.grounded &&
+        p.dodgeTime <= 0 &&
+        p.dashTime <= 0 &&
+        p.dodgeCooldown <= 0 &&
+        p.stamina >= DODGE_STAMINA_COST &&
+        p.attackWindup <= 0 &&
+        p.abilityWindup <= 0 &&
+        p.alive
+      ) {
+        const len = Math.hypot(input.moveX, input.moveZ) || 1;
+        const dx = input.moveX / len;
+        const dz = input.moveZ / len;
+        p.dodgeTime = DODGE_TIME;
+        p.dodgeCooldown = DODGE_COOLDOWN;
+        p.invuln = DODGE_IFRAMES;
+        p.stamina = Math.max(0, p.stamina - DODGE_STAMINA_COST);
+        p.staminaDelay = STAMINA_REGEN_DELAY;
+        p.vx = dx * DODGE_SPEED;
+        p.vz = dz * DODGE_SPEED;
+        p.blocking = false;
+        // el salto se consume aquí: esquivar y saltar a la vez, no
+        inputEfectivo = { ...input, jump: false, jumpHeld: false };
+        this.emit({ type: 'dodged', id: p.id, dirX: dx, dirZ: dz });
+      }
+
+      if (p.dodgeTime > 0) {
+        // quiebro: velocidad fijada, sin daño y pegado al suelo
+        p.dodgeTime -= DT;
+        p.x += p.vx * DT;
+        p.z += p.vz * DT;
+        p.y = terrainHeight(p.x, p.z, this.seed);
+        if (p.dodgeTime <= 0) {
+          p.vx *= 0.2;
+          p.vz *= 0.2;
+        }
+      } else if (p.dashTime > 0) {
         // acometida: velocidad fijada, daña a los atravesados una vez
         p.dashTime -= DT;
         p.x += p.vx * DT;
@@ -374,7 +427,7 @@ export class Sim {
           p.vz *= 0.25;
         }
       } else {
-        stepPlayerMotion(p, input, this.seed, this.emit);
+        stepPlayerMotion(p, inputEfectivo, this.seed, this.emit);
       }
 
       // cubriéndote, el escudo apunta solo a la amenaza más cercana

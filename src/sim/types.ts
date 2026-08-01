@@ -84,6 +84,15 @@ export const MOB_RESPAWN_TIME = 45; // el lomo tarda en volver a poblarse
 export const BOSS_RESPAWN_TIME = 240; // al jefe se le respeta el luto
 export const MOB_XP_REWARD = 15;
 
+// --- Esquiva (Espacio en movimiento) ---
+// No hay animación de rodar en ningún rig, así que es un quiebro lateral:
+// desplazamiento corto y seco con medio segundo de intocable.
+export const DODGE_SPEED = 17;
+export const DODGE_TIME = 0.26; // lo que dura el desplazamiento
+export const DODGE_IFRAMES = 0.5; // lo que dura el ser intocable
+export const DODGE_COOLDOWN = 5.5; // no es un recurso de movimiento: es un salvavidas
+export const DODGE_STAMINA_COST = 26;
+
 // --- Fuera de combate: el lomo también cura ---
 export const OUT_OF_COMBAT_TIME = 6; // segundos sin dar ni recibir para regenerar
 export const REGEN_PER_SEC = 0.05; // del máximo de vida, por segundo (20 s a tope)
@@ -184,6 +193,9 @@ export interface Entity {
   weaponXp: Record<string, number>;
   potions: number;
   potionCooldown: number;
+  dodgeTime: number; // >0: esquiva en curso (desplazamiento)
+  dodgeCooldown: number;
+  invuln: number; // >0: los golpes te atraviesan
   combatTimer: number; // >0: sigues en combate, no hay regeneración
   regenAccum: number; // vida fraccionada pendiente de sumar
   sitting: boolean;
@@ -257,6 +269,8 @@ export type SimEvent =
   | { type: 'potionDropped'; dropId: number; x: number; y: number; z: number }
   | { type: 'potionPickedUp'; dropId: number; total: number; lleno: boolean }
   | { type: 'potionDrunk'; amount: number; quedan: number }
+  | { type: 'dodged'; id: number; dirX: number; dirZ: number }
+  | { type: 'evaded'; id: number; x: number; y: number; z: number }
   | { type: 'sat'; id: number; sitting: boolean }
   | { type: 'regenTick'; id: number; amount: number }
   | { type: 'weaponLeveledUp'; setId: string; level: number }

@@ -82,6 +82,17 @@ export function strikeTarget(
   emit: (ev: SimEvent) => void,
   extra: { x?: number; y?: number; z?: number } = {},
 ): DamageResult {
+  // esquivando eres intocable: el golpe te atraviesa y se anuncia
+  if (target.invuln > 0) {
+    emit({
+      type: 'evaded',
+      id: target.id,
+      x: extra.x ?? target.x,
+      y: extra.y ?? target.y + 1.4,
+      z: extra.z ?? target.z,
+    });
+    return { amount: 0, killed: false };
+  }
   let amount = rng.int(min, max);
   // el crítico se tira SIEMPRE (aunque la probabilidad sea 0) para no
   // desalinear la secuencia de aleatorios entre partidas con y sin talentos
@@ -150,6 +161,10 @@ export function resolveSwing(
   for (const t of candidates) {
     if (!t.alive || t.id === attacker.id) continue;
     if (!inMeleeCone(attacker, t)) continue;
+    if (t.invuln > 0) {
+      emit({ type: 'evaded', id: t.id, x: t.x, y: t.y + 1.4, z: t.z });
+      continue;
+    }
     if (isBlockedHit(t, attacker)) {
       // el escudo absorbe la mayor parte; el resto sí entra
       const raw = rng.int(min, max);
