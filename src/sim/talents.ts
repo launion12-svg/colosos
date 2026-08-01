@@ -31,8 +31,8 @@ export interface TalentNode {
 
 // Puntos ya invertidos en ese árbol que exige cada tier. Obliga a bajar por
 // una rama antes de tocar la siguiente: es lo que hace que elegir duela.
-export const TIER_REQ = [0, 3, 7];
-export const TALENT_POINTS_PER_LEVEL = 1;
+export const TIER_REQ = [0, 3, 6];
+export const TALENT_POINTS_PER_WEAPON_LEVEL = 1;
 export const DOT_TIME = 3; // duración del estado (sangrado/veneno/quemadura)
 export const SLOW_TIME = 2.5;
 export const CRIT_MULT_BASE = 1.5;
@@ -81,6 +81,14 @@ export const TALENT_TREES: Record<string, TalentNode[]> = {
       per: { dotDps: 5 },
     },
     {
+      id: 'castigo',
+      nombre: 'Castigo',
+      desc: '+8% de daño de habilidades por rango.',
+      tier: 2,
+      maxRank: 2,
+      per: { abilityDmg: 0.08 },
+    },
+    {
       id: 'embate',
       nombre: 'Embate de Escudo',
       desc: 'Abre tu segunda habilidad (tecla 2): una carga con el escudo por delante.',
@@ -121,6 +129,14 @@ export const TALENT_TREES: Record<string, TalentNode[]> = {
       tier: 2,
       maxRank: 2,
       per: { cooldown: 0.08 },
+    },
+    {
+      id: 'punto_debil',
+      nombre: 'Punto Débil',
+      desc: 'Tus críticos pegan un 20% más fuerte por rango.',
+      tier: 2,
+      maxRank: 2,
+      per: { critMult: 0.2 },
     },
     {
       id: 'lluvia',
@@ -165,6 +181,14 @@ export const TALENT_TREES: Record<string, TalentNode[]> = {
       per: { critMult: 0.25 },
     },
     {
+      id: 'ligereza',
+      nombre: 'Ligereza',
+      desc: '+6% de daño con las dagas por rango.',
+      tier: 2,
+      maxRank: 2,
+      per: { basicDmg: 0.06 },
+    },
+    {
       id: 'danza',
       nombre: 'Danza de Cuchillas',
       desc: 'Abre tu segunda habilidad (tecla 2): un torbellino de dagas a tu alrededor.',
@@ -205,6 +229,14 @@ export const TALENT_TREES: Record<string, TalentNode[]> = {
       tier: 2,
       maxRank: 2,
       per: { cooldown: 0.09 },
+    },
+    {
+      id: 'sed_de_savia',
+      nombre: 'Sed de Savia',
+      desc: 'Te curas un 4% del daño que haces, por rango.',
+      tier: 2,
+      maxRank: 2,
+      per: { lifesteal: 0.04 },
     },
     {
       id: 'sismo',
@@ -249,6 +281,14 @@ export const TALENT_TREES: Record<string, TalentNode[]> = {
       per: { cooldown: 0.09 },
     },
     {
+      id: 'aliento_vital',
+      nombre: 'Aliento Vital',
+      desc: '+10 de vida máxima por rango.',
+      tier: 2,
+      maxRank: 2,
+      per: { maxHp: 10 },
+    },
+    {
       id: 'aliento',
       nombre: 'Aliento del Mar Tóxico',
       desc: 'Abre tu segunda habilidad (tecla 2): una nube densa que avanza sola y arrasa.',
@@ -261,6 +301,12 @@ export const TALENT_TREES: Record<string, TalentNode[]> = {
 
 // Lo que has gastado: árbol -> nodo -> rangos.
 export type TalentSpent = Record<string, Record<string, number>>;
+
+// Rangos totales de un árbol. Siempre serán más que los puntos que da la
+// maestría: el árbol no se llena, se elige.
+export function treeTotalRanks(setId: string): number {
+  return (TALENT_TREES[setId] ?? []).reduce((a, n) => a + n.maxRank, 0);
+}
 
 export function nodeById(setId: string, nodeId: string): TalentNode | undefined {
   return TALENT_TREES[setId]?.find((n) => n.id === nodeId);

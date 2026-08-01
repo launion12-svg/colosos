@@ -5,8 +5,15 @@
 import { describe, expect, it } from 'vitest';
 import { CLASS_ABILITY2 } from '../src/sim/abilities';
 import { Sim } from '../src/sim/sim';
-import { TALENT_TREES, TIER_REQ } from '../src/sim/talents';
-import { IDLE_INPUT, playerMaxHp, type Entity, type MoveInput, type SimEvent } from '../src/sim/types';
+import { TALENT_TREES, TIER_REQ, treeTotalRanks } from '../src/sim/talents';
+import {
+  IDLE_INPUT,
+  WEAPON_MAX_LEVEL,
+  playerMaxHp,
+  type Entity,
+  type MoveInput,
+  type SimEvent,
+} from '../src/sim/types';
 
 const move = (over: Partial<MoveInput> = {}): MoveInput => ({ ...IDLE_INPUT, ...over });
 
@@ -23,8 +30,15 @@ function placeAt(s: Sim, target: Entity, dz = 1.6): void {
 
 // mete puntos a saco en un nodo (los tests no farmean 20 niveles)
 function invertir(s: Sim, setId: string, nodeId: string, veces: number): void {
-  s.player.talentPoints += veces;
+  s.initWeapon(setId);
+  s.player.talentPoints[setId] += veces;
   for (let i = 0; i < veces; i++) expect(s.spendTalent(setId, nodeId)).toBe(true);
+}
+
+// puntos de maestría a mano, sin farmear diez niveles de arma
+function darPuntos(s: Sim, setId: string, n: number): void {
+  s.initWeapon(setId);
+  s.player.talentPoints[setId] = n;
 }
 
 describe('árboles de talentos', () => {
@@ -39,17 +53,74 @@ describe('árboles de talentos', () => {
     }
   });
 
-  it('cada nivel da un punto de talento', () => {
+  it('los puntos los da la MAESTRÍA del arma, no el nivel del personaje', () => {
     const s = new Sim(7, { setA: 'medula' });
-    expect(s.player.talentPoints).toBe(0);
-    const antes = s.player.level;
-    while (s.player.level < antes + 3) s.grantXpForTests(500);
-    expect(s.player.talentPoints).toBe(s.player.level - antes);
+    expect(s.player.talentPoints.medula).toBe(0);
+    expect(s.player.weaponLevel.medula).toBe(1);
+    s.grantXpForTests(400); // pelear sube al héroe y al arma que llevas
+    expect(s.player.weaponLevel.medula).toBeGreaterThan(1);
+    expect(s.player.talentPoints.medula).toBe(s.player.weaponLevel.medula - 1);
+  });
+
+  it('la maestría sube SOLO en el arma que llevas en la mano', () => {
+    const s = new Sim(7, { setA: 'medula', setB: 'fumarel' });
+    s.grantXpForTests(300);
+    expect(s.player.weaponLevel.medula).toBeGreaterThan(1);
+    expect(s.player.weaponLevel.fumarel).toBe(1); // el bastón, guardado, no aprende
+    s.tick(move({ swap: true }));
+    s.grantXpForTests(300);
+    expect(s.player.weaponLevel.fumarel).toBeGreaterThan(1);
+  });
+
+  it('un arma recién caída empieza su maestría de cero', () => {
+    const s = new Sim(7, { setA: 'medula' });
+    s.grantXpForTests(3000); // la espada ya va lanzada
+    expect(s.player.weaponLevel.medula).toBeGreaterThan(2);
+    s.player.ownedWeapons.push('hachero');
+    s.initWeapon('hachero');
+    expect(s.player.weaponLevel.hachero).toBe(1);
+    expect(s.player.talentPoints.hachero).toBe(0);
+  });
+
+  it('la maestría es del TIPO de arma: subir de calidad no reinicia nada', () => {
+    const s = new Sim(7, { setA: 'medula' });
+    s.grantXpForTests(900); // la espada de madera coge maestría
+    invertir(s, 'medula', 'hueso_duro', 2);
+    const nivelAntes = s.player.weaponLevel.medula;
+    const xpAntes = s.player.weaponXp.medula;
+    expect(nivelAntes).toBeGreaterThan(1);
+
+    // cae una espada MEJOR (mágica): es la misma arma con otra calidad
+    s.drops.push({
+      id: 900,
+      x: s.player.x,
+      y: s.player.y,
+      z: s.player.z,
+      setId: 'medula',
+      rarity: 1,
+    });
+    const evs = s.tick(move());
+    expect(evs.some((e) => e.type === 'lootPickedUp' && e.upgraded)).toBe(true);
+    expect(s.player.weaponRarity.medula).toBe(1); // la calidad sí sube
+    expect(s.player.weaponLevel.medula).toBe(nivelAntes); // la maestría, intacta
+    expect(s.player.weaponXp.medula).toBe(xpAntes);
+    expect(s.player.talents.medula.hueso_duro).toBe(2); // y el árbol, tal cual
+  });
+
+  it('la maestría tiene tope, y no da para llenar el árbol', () => {
+    const s = new Sim(7, { setA: 'medula' });
+    for (let i = 0; i < 40; i++) s.grantXpForTests(5000);
+    expect(s.player.weaponLevel.medula).toBe(WEAPON_MAX_LEVEL);
+    const puntos = s.player.talentPoints.medula;
+    expect(puntos).toBe(WEAPON_MAX_LEVEL - 1);
+    // la clave del diseño: hay menos puntos que rangos, así que se elige
+    expect(puntos).toBeLessThan(treeTotalRanks('medula'));
   });
 
   it('el tier 2 está cerrado hasta invertir en el árbol, y solo en ESE árbol', () => {
     const s = new Sim(7, { setA: 'medula', setB: 'fumarel' });
-    s.player.talentPoints = 10;
+    darPuntos(s, 'medula', 10);
+    darPuntos(s, 'fumarel', 10);
     expect(s.spendTalent('medula', 'muro_vivo')).toBe(false); // tier 2 aún cerrado
     invertir(s, 'medula', 'hueso_duro', TIER_REQ[1]); // los puntos que pide
     expect(s.spendTalent('medula', 'muro_vivo')).toBe(true);
@@ -59,24 +130,25 @@ describe('árboles de talentos', () => {
 
   it('no se gasta más de lo que hay ni por encima del rango máximo', () => {
     const s = new Sim(7, { setA: 'medula' });
-    s.player.talentPoints = 1;
+    darPuntos(s, 'medula', 1);
     expect(s.spendTalent('medula', 'hueso_duro')).toBe(true);
     expect(s.spendTalent('medula', 'hueso_duro')).toBe(false); // sin puntos
-    s.player.talentPoints = 10;
+    darPuntos(s, 'medula', 10);
     invertir(s, 'medula', 'hueso_duro', 2); // hasta 3/3
     expect(s.spendTalent('medula', 'hueso_duro')).toBe(false); // al máximo
     expect(s.spendTalent('medula', 'nodo_inventado')).toBe(false);
   });
 
-  it('devolver los puntos los recupera todos y borra los efectos', () => {
-    const s = new Sim(7, { setA: 'medula' });
+  it('reiniciar un árbol devuelve SUS puntos y no toca el de la otra arma', () => {
+    const s = new Sim(7, { setA: 'medula', setB: 'hachero' });
     invertir(s, 'medula', 'hueso_duro', 3);
-    const conTalento = s.player.maxHp;
-    expect(conTalento).toBeGreaterThan(playerMaxHp(s.player.level));
-    const devueltos = s.resetTalents();
+    invertir(s, 'hachero', 'furia', 2);
+    expect(s.player.maxHp).toBeGreaterThan(playerMaxHp(s.player.level));
+    const devueltos = s.resetTalents('medula');
     expect(devueltos).toBe(3);
-    expect(s.player.talentPoints).toBe(3);
+    expect(s.player.talentPoints.medula).toBe(3);
     expect(s.player.maxHp).toBe(playerMaxHp(s.player.level));
+    expect(s.player.talents.hachero.furia).toBe(2); // el hacha, intacta
   });
 
   it('la vida del árbol es la del arma EN MANO: cambiar de arma cambia el build', () => {
@@ -181,7 +253,8 @@ describe('árboles de talentos', () => {
   it('los talentos no rompen la paridad determinista', () => {
     const build = (seed: number): Sim => {
       const s = new Sim(seed, { setA: 'cordelero', setB: 'hachero' });
-      s.player.talentPoints = 12;
+      s.initWeapon('cordelero');
+      s.player.talentPoints.cordelero = 12;
       s.spendTalent('cordelero', 'reflejos');
       s.spendTalent('cordelero', 'filos_venenosos');
       s.spendTalent('cordelero', 'filos_venenosos');

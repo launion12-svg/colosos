@@ -25,8 +25,14 @@ await page.evaluate(() => {
   h.setTimeOfDay(0.42);
   h.teleport(14, -82);
   h.setCamera(Math.PI * 0.15, 0.2, 6);
-  h.sim.player.talentPoints = 9;
+  // maestría a mano: 6 niveles de hacha y 3 de bastón, como si los hubieras usado
   h.sim.player.level = 10;
+  h.sim.player.weaponLevel.hachero = 6;
+  h.sim.player.talentPoints.hachero = 5;
+  h.sim.player.weaponXp.hachero = 120;
+  h.sim.player.weaponLevel.fumarel = 3;
+  h.sim.player.talentPoints.fumarel = 2;
+  h.sim.player.weaponXp.fumarel = 60;
   for (const m of h.sim.mobs()) { m.x = h.sim.player.x + 70; m.z = h.sim.player.z + 70; }
 });
 await frames(8);
@@ -45,7 +51,7 @@ const abierto = await page.evaluate(() => {
     for (let i = 0; i < veces; i++) el?.click();
   };
   clic('furia', 3);
-  clic('cuero_curtido', 3);
+  clic('cuero_curtido', 3); // solo entran 5: los puntos del arma son los que son
   // tras 6 puntos el tier 2 ya está abierto; el 7º abre el final
   const tras = [...document.querySelectorAll('#talents .talent-node[data-set="hachero"]')];
   const hend = tras.find((n) => n.dataset.node === 'hendidura');
@@ -57,6 +63,7 @@ const abierto = await page.evaluate(() => {
   const h = window.__colosos;
   return {
     puntos: h.sim.player.talentPoints,
+    maestria: h.sim.player.weaponLevel,
     arbol: h.sim.player.talents.hachero,
     ability2: h.sim.ability2?.id ?? null,
     vida: h.sim.player.maxHp,
@@ -78,6 +85,10 @@ const golpe = await page.evaluate(() => {
   mob.z = p.z + Math.cos(p.yaw) * 3;
   mob.hp = mob.maxHp * 4;
   mob.maxHp = mob.hp;
+  h.sim.player.talentPoints.hachero += 4; // para llegar al nodo final en la foto
+  for (const n of ['hendidura', 'sismo']) h.sim.spendTalent('hachero', n);
+  h.sim.spendTalent('hachero', 'hendidura');
+  h.sim.spendTalent('hachero', 'sismo');
   const evs = h.tickN(12, { ability2: true });
   h.setPaused(true);
   return {

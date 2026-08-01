@@ -126,8 +126,13 @@ async function boot(): Promise<void> {
         for (const ev of events) {
           renderer.onSimEvent(ev);
           if (ev.type === 'lootPickedUp' || ev.type === 'weaponEquipped') inventory.refresh();
+          if (ev.type === 'weaponLeveledUp') {
+            const arma = classById(ev.setId)?.nombre ?? ev.setId;
+            hud.toast(`Maestría de ${arma} · nivel ${ev.level} — tienes un punto de talento (T)`);
+          }
           switch (ev.type) {
             case 'leveledUp':
+            case 'weaponLeveledUp':
             case 'talentSpent':
             case 'talentsReset':
             case 'weaponSwapped':

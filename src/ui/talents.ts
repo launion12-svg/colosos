@@ -4,7 +4,8 @@
 
 import { CLASSES, weaponName } from '../game/classes';
 import type { Sim } from '../sim/sim';
-import { TALENT_TREES, TIER_REQ, canSpend, pointsInTree } from '../sim/talents';
+import { TALENT_TREES, TIER_REQ, canSpend, pointsInTree, treeTotalRanks } from '../sim/talents';
+import { WEAPON_MAX_LEVEL, weaponXpToNext } from '../sim/types';
 
 export class TalentWindow {
   private el: HTMLElement;
@@ -53,7 +54,8 @@ export class TalentWindow {
           .map((n) => {
             const rank = this.sim.player.talents[setId]?.[n.id] ?? 0;
             const lleno = rank >= n.maxRank;
-            const puede = canSpend(this.sim.player.talents, setId, n.id) && this.puntos > 0;
+            const puede =
+              canSpend(this.sim.player.talents, setId, n.id) && this.puntosDe(setId) > 0;
             const clases = [
               'talent-node',
               lleno ? 'full' : '',
@@ -74,29 +76,49 @@ export class TalentWindow {
       })
       .join('');
     const rarity = this.sim.player.weaponRarity[setId] ?? 0;
+    const p = this.sim.player;
+    const nivel = p.weaponLevel[setId] ?? 1;
+    const xp = p.weaponXp[setId] ?? 0;
+    const tope = nivel >= WEAPON_MAX_LEVEL;
+    const need = weaponXpToNext(nivel);
+    const pct = tope ? 100 : Math.min(100, (xp / need) * 100);
+    const sinGastar = this.puntosDe(setId);
+    const total = treeTotalRanks(setId);
     return `<div class="talent-tree${enMano ? ' in-hand' : ''}">
         <div class="tt-head">${def?.nombre ?? setId}<span>${weaponName(setId, rarity)}</span></div>
-        <div class="tt-points">${invertidos} puntos invertidos${enMano ? ' · EN MANO' : ''}</div>
+        <div class="tt-mastery">
+          <div class="ttm-line">Maestría ${nivel}/${WEAPON_MAX_LEVEL}${enMano ? ' · EN MANO' : ''}</div>
+          <div class="ttm-bar"><div class="ttm-fill" style="width:${pct}%"></div></div>
+          <div class="ttm-xp">${tope ? 'maestría completa' : `${xp} / ${need} de uso`}</div>
+        </div>
+        <div class="tt-points">
+          <b>${sinGastar}</b> por gastar · ${invertidos}/${total} invertidos
+          ${sinGastar > 0 ? '<span class="tt-ping">¡elige!</span>' : ''}
+        </div>
         ${filas}
+        <button class="tree-reset ornate-soft" data-set="${setId}">Reiniciar este árbol</button>
       </div>`;
   }
 
-  private get puntos(): number {
-    return this.sim.player.talentPoints;
+  private puntosDe(setId: string): number {
+    return this.sim.player.talentPoints[setId] ?? 0;
   }
 
   private render(): void {
     const p = this.sim.player;
     const enMano = this.sim.activeSetId;
     const equipadas = [p.setA, p.setB].filter(Boolean);
+    const total = equipadas.reduce((a, id) => a + this.puntosDe(id), 0);
     this.el.innerHTML = `
-      <div class="talent-title">Talentos · ${this.puntos} punto${this.puntos === 1 ? '' : 's'} sin gastar</div>
-      <div class="talent-sub">Los puntos son del arma, no tuyos: cada arma tiene su camino. Cambiar de arma cambia el build.</div>
+      <div class="talent-title">Maestría de armas · ${total} punto${total === 1 ? '' : 's'} sin gastar</div>
+      <div class="talent-sub">
+        El nivel es del ARMA: sube usándola, y cada nivel de maestría da un punto para su árbol.
+        Un arma recién caída empieza de cero. Nunca dan para llenarlo entero, así que el camino lo eliges tú.
+      </div>
       <div class="talent-cols">
         ${equipadas.map((id) => this.treeHtml(id, id === enMano)).join('')}
       </div>
       <div class="talent-foot">
-        <button id="talent-reset" class="ornate ornate-soft">Devolver todos los puntos</button>
         <span class="talent-hint">Click en un talento para meter un punto · T / Esc: cerrar</span>
       </div>`;
 
@@ -108,10 +130,12 @@ export class TalentWindow {
         else this.rechazo(node);
       });
     }
-    this.el.querySelector('#talent-reset')?.addEventListener('click', () => {
-      this.sim.resetTalents();
-      this.render();
-    });
+    for (const btn of this.el.querySelectorAll<HTMLElement>('.tree-reset')) {
+      btn.addEventListener('click', () => {
+        this.sim.resetTalents(btn.dataset.set ?? '');
+        this.render();
+      });
+    }
   }
 
   private rechazo(el: HTMLElement): void {

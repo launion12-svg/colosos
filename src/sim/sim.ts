@@ -28,7 +28,7 @@ import {
   DOT_KIND,
   DOT_TIME,
   SLOW_TIME,
-  TALENT_POINTS_PER_LEVEL,
+  TALENT_POINTS_PER_WEAPON_LEVEL,
   canSpend,
   resolveTalents,
   type TalentSpent,
@@ -46,6 +46,7 @@ import {
   dist2d,
   IDLE_INPUT,
   MAX_LEVEL,
+  WEAPON_MAX_LEVEL,
   MIST_DEATH_MARGIN,
   MOB_XP_REWARD,
   PLAYER_MAX_HP,
@@ -55,6 +56,7 @@ import {
   playerDamageMax,
   playerDamageMin,
   playerMaxHp,
+  weaponXpToNext,
   xpToNext,
   type Entity,
   type EntityKind,
@@ -128,8 +130,10 @@ function baseEntity(id: number, kind: EntityKind, name: string): Entity {
     swapCooldown: 0,
     ownedWeapons: [],
     weaponRarity: {},
-    talentPoints: 0,
+    talentPoints: {},
     talents: {},
+    weaponLevel: {},
+    weaponXp: {},
     stamina: STAMINA_MAX,
     staminaDelay: 0,
     winded: false,
@@ -205,6 +209,7 @@ export class Sim {
     this.player.setB = setB;
     this.player.ownedWeapons = setB ? [setA, setB] : [setA];
     this.player.weaponRarity = setB ? { [setA]: 0, [setB]: 0 } : { [setA]: 0 };
+    for (const id of this.player.ownedWeapons) this.initWeapon(id);
     this.player.hasShield = WEAPON_SET_INFO[setA]?.hasShield ?? false;
     this.player.maxHp = PLAYER_MAX_HP;
     this.player.hp = PLAYER_MAX_HP;
@@ -394,6 +399,7 @@ export class Sim {
         }
         if (isNew) {
           p.ownedWeapons.push(d.setId);
+          this.initWeapon(d.setId); // el arma nueva empieza su maestría de cero
           p.weaponRarity[d.setId] = d.rarity;
           if (p.setB === '') p.setB = d.setId;
         } else if (upgraded) {
@@ -677,28 +683,64 @@ export class Sim {
   // el tier sigue cerrado: la interfaz no necesita conocer las reglas.
   spendTalent(setId: string, nodeId: string): boolean {
     const p = this.player;
-    if (p.talentPoints <= 0) return false;
+    if ((p.talentPoints[setId] ?? 0) <= 0) return false; // los puntos son DEL arma
     if (!canSpend(p.talents as TalentSpent, setId, nodeId)) return false;
     const tree = (p.talents[setId] ??= {});
     tree[nodeId] = (tree[nodeId] ?? 0) + 1;
-    p.talentPoints--;
+    p.talentPoints[setId]--;
     this.refreshMaxHp();
     this.emit({ type: 'talentSpent', setId, nodeId, rank: tree[nodeId] });
     return true;
   }
 
-  // Devuelve TODOS los puntos: probar un camino no puede costar la partida.
-  resetTalents(): number {
+  // Devuelve los puntos de UN arma: probar un camino no puede costar la
+  // partida, pero tampoco arrasa el árbol de la otra.
+  resetTalents(setId: string): number {
     const p = this.player;
+    const tree = p.talents[setId];
+    if (!tree) return 0;
     let devueltos = 0;
-    for (const tree of Object.values(p.talents)) {
-      for (const rank of Object.values(tree)) devueltos += rank;
-    }
-    p.talents = {};
-    p.talentPoints += devueltos;
+    for (const rank of Object.values(tree)) devueltos += rank;
+    p.talents[setId] = {};
+    p.talentPoints[setId] = (p.talentPoints[setId] ?? 0) + devueltos;
     this.refreshMaxHp();
-    this.emit({ type: 'talentsReset', points: devueltos });
+    this.emit({ type: 'talentsReset', setId, points: devueltos });
     return devueltos;
+  }
+
+  // Alta de un arma en la maestría: nivel 1 y cero XP. Un arma recién caída
+  // empieza de cero aunque tú lleves media vida jugando.
+  initWeapon(setId: string): void {
+    const p = this.player;
+    p.weaponLevel[setId] ??= 1;
+    p.weaponXp[setId] ??= 0;
+    p.talentPoints[setId] ??= 0;
+  }
+
+  // Puntos sin gastar sumando todas las armas (para el aviso del HUD)
+  get unspentPoints(): number {
+    let n = 0;
+    for (const v of Object.values(this.player.talentPoints)) n += v;
+    return n;
+  }
+
+  // XP de maestría al arma EN MANO. Se usa el arma, sube el arma.
+  private grantWeaponXp(amount: number): void {
+    const p = this.player;
+    const setId = this.activeSetId;
+    this.initWeapon(setId);
+    if (p.weaponLevel[setId] >= WEAPON_MAX_LEVEL) return;
+    p.weaponXp[setId] += amount;
+    this.emit({ type: 'weaponXpGained', setId, amount });
+    while (
+      p.weaponLevel[setId] < WEAPON_MAX_LEVEL &&
+      p.weaponXp[setId] >= weaponXpToNext(p.weaponLevel[setId])
+    ) {
+      p.weaponXp[setId] -= weaponXpToNext(p.weaponLevel[setId]);
+      p.weaponLevel[setId]++;
+      p.talentPoints[setId] += TALENT_POINTS_PER_WEAPON_LEVEL;
+      this.emit({ type: 'weaponLeveledUp', setId, level: p.weaponLevel[setId] });
+    }
   }
 
   // Puerta para los tests: conceder XP sin tener que matar a nadie.
@@ -711,12 +753,12 @@ export class Sim {
   private grantXp(amount: number): void {
     const p = this.player;
     this.emit({ type: 'xpGained', id: p.id, amount });
+    this.grantWeaponXp(amount); // la misma hazaña sube al héroe y a su arma
     if (p.level >= MAX_LEVEL) return;
     p.xp += amount;
     while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
       p.xp -= xpToNext(p.level);
       p.level++;
-      p.talentPoints += TALENT_POINTS_PER_LEVEL; // el punto del nivel, a tu árbol
       this.refreshMaxHp();
       p.hp = p.maxHp;
       this.emit({ type: 'leveledUp', id: p.id, level: p.level });

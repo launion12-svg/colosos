@@ -262,8 +262,10 @@ export class Hud {
     }
     // puntos de talento sin gastar: el botón lo canta
     if (this.talentBadge) {
-      this.talentBadge.textContent = String(player.talentPoints);
-      this.talentBadge.classList.toggle('hidden', player.talentPoints <= 0);
+      let sin = 0;
+      for (const v of Object.values(player.talentPoints)) sin += v;
+      this.talentBadge.textContent = String(sin);
+      this.talentBadge.classList.toggle('hidden', sin <= 0);
     }
   }
 

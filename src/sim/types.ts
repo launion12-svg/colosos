@@ -43,11 +43,19 @@ export const PLAYER_DAMAGE_MAX = 16;
 export const PLAYER_MAX_HP = 100;
 export const PLAYER_RESPAWN_TIME = 3;
 export const MAX_LEVEL = 20;
+// Maestría: cada ARMA tiene su propio nivel y sube usándola. De ahí salen los
+// puntos de talento, no del personaje: un arma recién caída empieza de cero
+// aunque tú vayas por el nivel 15.
+export const WEAPON_MAX_LEVEL = 10;
 
 // --- Progresión ---
 // XP necesaria para pasar del nivel l al l+1 (curva clásica suave)
 export function xpToNext(level: number): number {
   return Math.floor(40 * level * (1 + level * 0.18));
+}
+// XP de maestría para pasar el arma del nivel l al l+1
+export function weaponXpToNext(level: number): number {
+  return Math.floor(50 * level * (1 + level * 0.22));
 }
 // Stats derivadas del nivel: LA única fuente (sim y HUD leen de aquí)
 export function playerMaxHp(level: number): number {
@@ -155,9 +163,12 @@ export interface Entity {
   ownedWeapons: string[]; // el zurrón: todo lo looteado se conserva
   weaponRarity: Record<string, number>; // calidad por tipo (0 común, 1 mágica, 2 rara)
   // energía (esprint y salto)
-  // talentos: puntos por gastar y lo gastado en el árbol de cada arma
-  talentPoints: number;
+  // maestría y talentos, TODO por arma: puntos sin gastar, lo gastado,
+  // el nivel del arma y su XP hacia el siguiente
+  talentPoints: Record<string, number>;
   talents: Record<string, Record<string, number>>;
+  weaponLevel: Record<string, number>;
+  weaponXp: Record<string, number>;
   stamina: number;
   staminaDelay: number;
   winded: boolean; // vació la barra: no esprinta hasta recuperar el mínimo
@@ -218,7 +229,9 @@ export type SimEvent =
       killed: boolean;
     }
   | { type: 'talentSpent'; setId: string; nodeId: string; rank: number }
-  | { type: 'talentsReset'; points: number }
+  | { type: 'talentsReset'; setId: string; points: number }
+  | { type: 'weaponXpGained'; setId: string; amount: number }
+  | { type: 'weaponLeveledUp'; setId: string; level: number }
   | { type: 'jumped'; id: number }
   | { type: 'landed'; id: number; fallSpeed: number }
   | { type: 'aggroed'; id: number }
