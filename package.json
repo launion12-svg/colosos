@@ -1,0 +1,25 @@
+{
+  "name": "colosos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Colosos: El Mundo Errante — MMO-lite en el navegador",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "three": "^0.178.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/three": "^0.178.0",
+    "playwright": "^1.62.1",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  }
+}
