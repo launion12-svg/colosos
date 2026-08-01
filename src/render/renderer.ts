@@ -52,6 +52,23 @@ const PROJ_STYLE: Record<string, ProjStyle> = {
     burst: 14,
   },
   chispa_niebla: { radius: 0.3, color: 0x7fe8e0, halo: 0x39c8bc, trail: 0x7fe8e0, burst: 20 },
+  // las de la tecla 2: más grandes, se leen desde lejos
+  lluvia_astillas: {
+    radius: 0.34,
+    color: 0xffe2a0,
+    halo: 0xffb03c,
+    haloOpacity: 0.45,
+    trail: 0xffc86a,
+    burst: 26,
+  },
+  aliento_toxico: {
+    radius: 0.55,
+    color: 0xb8e86a,
+    halo: 0x5f9c2a,
+    haloOpacity: 0.45,
+    trail: 0x9ad84a,
+    burst: 34,
+  },
 };
 
 const PROJ_FALLBACK: ProjStyle = { radius: 0.16, color: 0xd8dce8, stretch: true, burst: 8 };
@@ -408,12 +425,38 @@ export class GameRenderer {
           this.rig.punch(4);
           this.damageNumbers.spawn(pos, `-${ev.amount}`, 'dmg-in');
         } else {
-          this.shake.request(ev.killed ? 0.5 : 0.24);
-          this.damageNumbers.spawn(pos, String(ev.amount), 'dmg');
+          // el crítico se anuncia solo: número grande, naranja y más sacudida
+          this.shake.request(ev.crit ? 0.5 : ev.killed ? 0.5 : 0.24);
+          this.damageNumbers.spawn(pos, String(ev.amount), ev.crit ? 'crit' : 'dmg');
+          if (ev.crit) {
+            this.particles.burst(pos, {
+              count: 18,
+              color: 0xffb04a,
+              speed: 7,
+              life: 0.34,
+              size: 0.16,
+            });
+          }
           if (target) this.hud.setTarget(target.id);
         }
         this.hitstop.freeze(ev.killed ? 0.09 : 0.045);
         this.audio.play(ev.killed ? 'hit_hard' : 'hit');
+        break;
+      }
+      case 'dotDamage': {
+        // el estado repica en pequeño: se ve que sigue ardiendo sin tapar el HUD
+        const pos = this.tmp.set(ev.x, ev.y, ev.z);
+        const color = ev.kind === 'quemadura' ? 0xff7a2a : ev.kind === 'veneno' ? 0x9be04a : 0xd44040;
+        this.damageNumbers.spawn(pos, String(ev.amount), 'dot');
+        this.particles.burst(pos, { count: 4, color, speed: 1.6, life: 0.4, gravity: -1, size: 0.1 });
+        if (ev.killed) this.audio.play('hit_hard');
+        break;
+      }
+      case 'healed': {
+        const v = this.views.get(ev.id);
+        if (v) this.flash.flash(v.meshes, 0x7fd8a0, 0.08);
+        const p2 = this.sim.player;
+        this.damageNumbers.spawn(this.tmp.set(p2.x, p2.y + 2, p2.z), `+${ev.amount}`, 'heal');
         break;
       }
       case 'jumped': {
@@ -583,12 +626,42 @@ export class GameRenderer {
           // que se distinga de un vistazo cuál de los dos estás lanzando
           chispa_niebla: { anim: 'Spellcast_Raise', ts: 2.4 },
           tajo_circular: { anim: '2H_Melee_Attack_Chop', ts: 0.85 },
+          // las segundas habilidades, las que abre el árbol de talentos
+          embate_escudo: { anim: '1H_Melee_Attack_Chop', ts: 1.4 },
+          lluvia_astillas: { anim: '2H_Ranged_Shoot', ts: 1.2 },
+          danza_cuchillas: { anim: 'Dualwield_Melee_Attack_Chop', ts: 1.1 },
+          hachazo_sismico: { anim: '2H_Melee_Attack_Chop', ts: 0.7 },
+          aliento_toxico: { anim: 'Spellcasting', ts: 1.1 },
         };
         const a = anims[ev.ability];
         if (v && a) v.play(a.anim, { once: true, fade: 0.06, timeScale: a.ts });
         if (ev.ability === 'golpe_vertebra') {
           this.shake.request(0.3);
           this.rig.punch(4);
+        }
+        if (ev.ability === 'hachazo_sismico') {
+          // el sismo levanta un frente de polvo por delante, no un anillo
+          const p3 = this.sim.player;
+          for (let i = 0; i < 22; i++) {
+            const ang = p3.yaw + (i / 21 - 0.5) * Math.PI * 1.1;
+            this.particles.burst(
+              this.tmp.set(p3.x + Math.sin(ang) * 3.6, p3.y + 0.25, p3.z + Math.cos(ang) * 3.6),
+              { count: 3, color: 0xe4d3b0, speed: 3.4, life: 0.6, gravity: 3.4, size: 0.2 },
+            );
+          }
+          this.shake.request(0.75);
+          this.rig.punch(7);
+        }
+        if (ev.ability === 'danza_cuchillas') {
+          const p4 = this.sim.player;
+          for (let i = 0; i < 18; i++) {
+            const ang = (i / 18) * Math.PI * 2;
+            this.particles.burst(
+              this.tmp.set(p4.x + Math.sin(ang) * 1.9, p4.y + 1, p4.z + Math.cos(ang) * 1.9),
+              { count: 2, color: 0xd8e4ff, speed: 3, life: 0.35, size: 0.12 },
+            );
+          }
+          this.shake.request(0.3);
         }
         if (ev.ability === 'tajo_circular') {
           // el giro no está en el rig: lo cuenta el anillo de polvo a ras de suelo

@@ -75,6 +75,8 @@ export function updateMob(
   m.vx = 0;
   m.vz = 0;
   m.attackCooldown = Math.max(0, m.attackCooldown - DT);
+  // lo que va frenado (flecha lastrada, escarcha) se arrastra hasta su casa
+  const speed = m.moveSpeed * (1 - m.slowMult);
   const distToPlayer = dist2d(m.x, m.z, player.x, player.z);
   const distHome = dist2d(m.x, m.z, m.homeX, m.homeZ);
 
@@ -102,7 +104,7 @@ export function updateMob(
       if (m.patrolWait > 0) {
         m.patrolWait -= DT;
       } else {
-        const d = moveToward(m, m.patrolX, m.patrolZ, m.moveSpeed * MOB_PATROL_SPEED_MULT, seed);
+        const d = moveToward(m, m.patrolX, m.patrolZ, speed * MOB_PATROL_SPEED_MULT, seed);
         if (d < 1.2) pickPatrolPoint(rng, m);
       }
       break;
@@ -122,7 +124,7 @@ export function updateMob(
         m.aiState = 'attack';
         break;
       }
-      moveToward(m, player.x, player.z, m.moveSpeed, seed);
+      moveToward(m, player.x, player.z, speed, seed);
       break;
     }
     case 'attack': {
@@ -144,7 +146,7 @@ export function updateMob(
     }
     case 'evade': {
       // vuelve a casa inmune y se cura al llegar
-      const d = moveToward(m, m.homeX, m.homeZ, m.moveSpeed * MOB_EVADE_SPEED_MULT, seed);
+      const d = moveToward(m, m.homeX, m.homeZ, speed * MOB_EVADE_SPEED_MULT, seed);
       if (d < 1.5) {
         m.hp = m.maxHp;
         m.aiState = 'patrol';

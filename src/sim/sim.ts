@@ -5,6 +5,7 @@
 import {
   BAG_SLOTS,
   CLASS_ABILITY,
+  CLASS_ABILITY2,
   LOOT_PICKUP_RADIUS,
   RARITY_MULT,
   rarityWeightsForLevel,
@@ -21,7 +22,17 @@ import {
 } from './abilities';
 import { updateMob, isEvading } from './ai';
 import { BESTIARY, CAMPS, SOCIAL_AGGRO_RADIUS } from './bestiary';
-import { resolveSwing } from './combat';
+import { resolveSwing, type HitMods } from './combat';
+import {
+  CRIT_MULT_BASE,
+  DOT_KIND,
+  DOT_TIME,
+  SLOW_TIME,
+  TALENT_POINTS_PER_LEVEL,
+  canSpend,
+  resolveTalents,
+  type TalentSpent,
+} from './talents';
 import { stepPlayerMotion } from './motion';
 import { Rng } from './rng';
 import { SPAWN_X, SPAWN_Z, MIST_LEVEL, terrainHeight } from './terrain';
@@ -99,14 +110,26 @@ function baseEntity(id: number, kind: EntityKind, name: string): Entity {
     hasShield: false,
     abilityCooldown: 0,
     abilityCooldownOther: 0,
+    ability2Cooldown: 0,
+    ability2CooldownOther: 0,
     abilityWindup: 0,
+    abilitySlot: 1,
     dashTime: 0,
+    dotDps: 0,
+    dotTime: 0,
+    dotKind: 'sangrado',
+    dotAccum: 0,
+    slowMult: 0,
+    slowTime: 0,
+    damageTakenMult: 1,
     setA: 'medula',
     setB: 'fumarel',
     activeSetB: false,
     swapCooldown: 0,
     ownedWeapons: [],
     weaponRarity: {},
+    talentPoints: 0,
+    talents: {},
     stamina: STAMINA_MAX,
     staminaDelay: 0,
     winded: false,
@@ -140,6 +163,28 @@ export class Sim {
   }
   get ability(): AbilityDef {
     return CLASS_ABILITY[this.activeSetId] ?? CLASS_ABILITY.medula;
+  }
+  // La segunda solo existe si el árbol del arma la ha abierto
+  get ability2(): AbilityDef | null {
+    return this.mods.unlockAbility2 ? (CLASS_ABILITY2[this.activeSetId] ?? null) : null;
+  }
+  // Talentos del arma EN MANO, ya resueltos. Cambiar de arma cambia el build.
+  get mods() {
+    return resolveTalents(this.player.talents, this.activeSetId);
+  }
+  // Lo que los talentos añaden a cada golpe (crítico, estados, robo de vida)
+  get hitMods(): HitMods {
+    const m = this.mods;
+    return {
+      critChance: m.critChance,
+      critMult: CRIT_MULT_BASE + m.critMult,
+      dotDps: m.dotDps,
+      dotTime: m.dotDps > 0 ? DOT_TIME : 0,
+      dotKind: DOT_KIND[this.activeSetId] ?? 'sangrado',
+      slowMult: m.slowMult,
+      slowTime: m.slowMult > 0 ? SLOW_TIME : 0,
+      lifesteal: m.lifesteal,
+    };
   }
   // Multiplicador de daño por la calidad del arma en mano
   get activeRarityMult(): number {
@@ -251,6 +296,8 @@ export class Sim {
     } else {
       p.abilityCooldown = Math.max(0, p.abilityCooldown - DT);
       p.abilityCooldownOther = Math.max(0, p.abilityCooldownOther - DT);
+      p.ability2Cooldown = Math.max(0, p.ability2Cooldown - DT);
+      p.ability2CooldownOther = Math.max(0, p.ability2CooldownOther - DT);
       p.swapCooldown = Math.max(0, p.swapCooldown - DT);
       this.bagFullNotice = Math.max(0, this.bagFullNotice - DT);
 
@@ -268,7 +315,11 @@ export class Sim {
         const cd = p.abilityCooldown;
         p.abilityCooldown = p.abilityCooldownOther;
         p.abilityCooldownOther = cd;
+        const cd2 = p.ability2Cooldown;
+        p.ability2Cooldown = p.ability2CooldownOther;
+        p.ability2CooldownOther = cd2;
         p.hasShield = WEAPON_SET_INFO[this.activeSetId]?.hasShield ?? false;
+        this.refreshMaxHp(); // la vida del árbol es la del arma en mano
         p.blocking = false;
         p.swapCooldown = SWAP_COOLDOWN;
         this.emit({ type: 'weaponSwapped', id: p.id, setId: this.activeSetId });
@@ -286,12 +337,13 @@ export class Sim {
         p.y = terrainHeight(p.x, p.z, this.seed);
         dashDamage(
           this.rng,
-          this.ability,
+          (p.abilitySlot === 2 ? this.ability2 : this.ability) ?? this.ability,
           p,
           this.mobs().filter((m) => !isEvading(m)),
           this.dashHitIds,
           this.emit,
-          this.activeRarityMult,
+          this.activeRarityMult * (1 + this.mods.abilityDmg),
+          this.hitMods,
         );
         if (p.dashTime <= 0) {
           this.dashHitIds.clear();
@@ -357,32 +409,46 @@ export class Sim {
         });
       }
 
-      // habilidad de clase: anuncio + resolución con anticipación
+      // habilidades: dos ranuras (1 siempre, 2 si el árbol la ha abierto).
+      // Anuncio + resolución con anticipación, como el golpe básico.
+      const ab2 = this.ability2;
       if (p.abilityWindup > 0) {
         p.abilityWindup -= DT;
         if (p.abilityWindup <= 0 && p.alive) {
-          resolveAbility(
-            this.rng,
-            this.ability,
-            p,
-            this.mobs().filter((m) => !isEvading(m)),
-            (proj) => this.spawnProjectile(proj),
-            this.emit,
-            this.activeRarityMult,
-          );
+          const def = p.abilitySlot === 2 ? ab2 : this.ability;
+          if (def) {
+            resolveAbility(
+              this.rng,
+              def,
+              p,
+              this.mobs().filter((m) => !isEvading(m)),
+              (proj) => this.spawnProjectile(proj),
+              this.emit,
+              this.activeRarityMult * (1 + this.mods.abilityDmg),
+              this.hitMods,
+            );
+          }
         }
       } else if (
-        input.ability &&
-        p.abilityCooldown <= 0 &&
+        (input.ability || (input.ability2 && ab2)) &&
         p.attackWindup <= 0 &&
         p.dashTime <= 0 &&
         !p.blocking &&
         p.alive
       ) {
-        p.yaw = abilityYaw(p, this.mobs());
-        p.abilityWindup = this.ability.windup;
-        p.abilityCooldown = this.ability.cooldown;
-        this.emit({ type: 'abilityUsed', id: p.id, ability: this.ability.id });
+        // la 2 tiene prioridad si se pulsan a la vez: es la cara
+        const usar2 = Boolean(input.ability2 && ab2);
+        const def = usar2 ? ab2! : this.ability;
+        const enfriando = usar2 ? p.ability2Cooldown : p.abilityCooldown;
+        if (enfriando <= 0) {
+          p.yaw = abilityYaw(p, this.mobs());
+          p.abilityWindup = def.windup;
+          p.abilitySlot = usar2 ? 2 : 1;
+          const cd = def.cooldown * (1 - this.mods.cooldown);
+          if (usar2) p.ability2Cooldown = cd;
+          else p.abilityCooldown = cd;
+          this.emit({ type: 'abilityUsed', id: p.id, ability: def.id, slot: usar2 ? 2 : 1 });
+        }
       }
 
       // ataque: anuncio + resolución con anticipación. Con arco o bastón el
@@ -394,7 +460,8 @@ export class Sim {
           const info = WEAPON_SET_INFO[this.activeSetId];
           const ranged = info?.rangedBasic;
           // rareza del arma × peso del arma: un hacha rara pega como un coloso
-          const rMult = this.activeRarityMult * (info?.basicDmgMult ?? 1);
+          const rMult =
+            this.activeRarityMult * (info?.basicDmgMult ?? 1) * (1 + this.mods.basicDmg);
           if (ranged) {
             this.spawnProjectile({
               x: p.x,
@@ -407,6 +474,7 @@ export class Sim {
               damageMin: Math.floor(playerDamageMin(p.level) * rMult),
               damageMax: Math.floor(playerDamageMax(p.level) * rMult),
               kind: ranged.kind,
+              mods: this.hitMods,
             });
           } else {
             resolveSwing(
@@ -416,6 +484,7 @@ export class Sim {
               Math.floor(playerDamageMin(p.level) * rMult),
               Math.floor(playerDamageMax(p.level) * rMult),
               this.emit,
+              this.hitMods,
             );
           }
         }
@@ -448,6 +517,7 @@ export class Sim {
     // --- Mobs (orden fijo por el array: determinista) ---
     for (const e of this.entities) {
       if (e.kind !== 'mob') continue;
+      this.stepStatus(e); // sangrado/veneno/quemadura y freno, antes de decidir
       updateMob(this.rng, e, p, this.seed, this.emit);
     }
 
@@ -546,6 +616,96 @@ export class Sim {
     return out;
   }
 
+  // Estados con duración sobre una criatura. El daño por segundo se acumula
+  // fraccionado y solo golpea cuando suma un punto entero: números limpios en
+  // pantalla y cero dependencia del tick rate en el total repartido.
+  private stepStatus(e: Entity): void {
+    if (e.slowTime > 0) {
+      e.slowTime = Math.max(0, e.slowTime - DT);
+      if (e.slowTime === 0) e.slowMult = 0;
+    }
+    if (e.dotTime <= 0 || !e.alive) return;
+    e.dotTime = Math.max(0, e.dotTime - DT);
+    e.dotAccum += e.dotDps * DT;
+    if (e.dotAccum < 1) {
+      if (e.dotTime === 0) e.dotDps = 0;
+      return;
+    }
+    const amount = Math.floor(e.dotAccum);
+    e.dotAccum -= amount;
+    e.hp = Math.max(0, e.hp - amount);
+    const killed = e.hp === 0;
+    if (killed) e.alive = false;
+    this.emit({
+      type: 'dotDamage',
+      id: e.id,
+      amount,
+      kind: e.dotKind,
+      x: e.x,
+      y: e.y + 1.4,
+      z: e.z,
+      killed,
+    });
+    if (killed) this.emit({ type: 'died', id: e.id, kind: e.kind });
+    if (e.dotTime === 0) e.dotDps = 0;
+  }
+
+  // La vida máxima y la armadura salen del árbol del arma EN MANO: al cambiar
+  // de arma cambia el build, así que hay que recalcularlas en el sitio.
+  private refreshMaxHp(): void {
+    const p = this.player;
+    const m = this.mods;
+    const antes = p.maxHp;
+    p.maxHp = playerMaxHp(p.level) + m.maxHp;
+    p.damageTakenMult = 1 - m.armor;
+    if (p.maxHp > antes) p.hp += p.maxHp - antes; // lo que suma el talento, lo regala
+    p.hp = Math.min(p.hp, p.maxHp);
+  }
+
+  // Recalcula todo lo derivado del estado del jugador (vida, escudo,
+  // armadura). Lo usa el guardado al restaurar una partida: nadie tiene que
+  // acordarse de qué campos dependen de qué.
+  rebuildDerived(): void {
+    const p = this.player;
+    p.hasShield = WEAPON_SET_INFO[this.activeSetId]?.hasShield ?? false;
+    this.refreshMaxHp();
+    p.hp = p.maxHp;
+  }
+
+  // --- Talentos ---
+  // Gasta un punto. Devuelve false si no hay puntos, el nodo está al máximo o
+  // el tier sigue cerrado: la interfaz no necesita conocer las reglas.
+  spendTalent(setId: string, nodeId: string): boolean {
+    const p = this.player;
+    if (p.talentPoints <= 0) return false;
+    if (!canSpend(p.talents as TalentSpent, setId, nodeId)) return false;
+    const tree = (p.talents[setId] ??= {});
+    tree[nodeId] = (tree[nodeId] ?? 0) + 1;
+    p.talentPoints--;
+    this.refreshMaxHp();
+    this.emit({ type: 'talentSpent', setId, nodeId, rank: tree[nodeId] });
+    return true;
+  }
+
+  // Devuelve TODOS los puntos: probar un camino no puede costar la partida.
+  resetTalents(): number {
+    const p = this.player;
+    let devueltos = 0;
+    for (const tree of Object.values(p.talents)) {
+      for (const rank of Object.values(tree)) devueltos += rank;
+    }
+    p.talents = {};
+    p.talentPoints += devueltos;
+    this.refreshMaxHp();
+    this.emit({ type: 'talentsReset', points: devueltos });
+    return devueltos;
+  }
+
+  // Puerta para los tests: conceder XP sin tener que matar a nadie.
+  grantXpForTests(amount: number): void {
+    this.grantXp(amount);
+  }
+
   // Concede XP y resuelve subidas de nivel: más vida, más daño, y el ding
   // cura a tope (regla clásica: subir de nivel en mitad de una pelea te salva).
   private grantXp(amount: number): void {
@@ -556,7 +716,8 @@ export class Sim {
     while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
       p.xp -= xpToNext(p.level);
       p.level++;
-      p.maxHp = playerMaxHp(p.level);
+      p.talentPoints += TALENT_POINTS_PER_LEVEL; // el punto del nivel, a tu árbol
+      this.refreshMaxHp();
       p.hp = p.maxHp;
       this.emit({ type: 'leveledUp', id: p.id, level: p.level });
     }

@@ -237,7 +237,16 @@ export class DamageNumbers {
   spawn(
     pos: THREE.Vector3,
     text: string,
-    cls: 'dmg' | 'dmg-in' | 'xp' | 'ding' | 'blocked' | 'loot-magic',
+    cls:
+      | 'dmg'
+      | 'dmg-in'
+      | 'xp'
+      | 'ding'
+      | 'blocked'
+      | 'loot-magic'
+      | 'crit'
+      | 'dot'
+      | 'heal',
   ): void {
     const el = document.createElement('div');
     el.className = `fct ${cls}`;

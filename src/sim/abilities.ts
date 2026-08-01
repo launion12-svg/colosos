@@ -1,7 +1,7 @@
 // Habilidades de clase: datos y resolución. El sim es dueño de esto; la capa
 // de render solo escucha eventos. Una habilidad por clase en F2.1 (tecla 1).
 
-import { inMeleeCone, resolveSwing } from './combat';
+import { NO_MODS, inMeleeCone, resolveSwing, strikeTarget, type HitMods } from './combat';
 import type { Rng } from './rng';
 import {
   DT,
@@ -150,6 +150,70 @@ export const CLASS_ABILITY: Record<string, AbilityDef> = {
   },
 };
 
+// La SEGUNDA habilidad de cada arma (tecla 2). No se tiene de salida: la
+// abre el nodo final de su árbol de talentos, que cuesta 7 puntos.
+export const CLASS_ABILITY2: Record<string, AbilityDef> = {
+  medula: {
+    id: 'embate_escudo',
+    nombre: 'Embate de Escudo',
+    desc: 'Cargas con el escudo por delante atravesando a quien pillas: daño ×1,6 y sales del apuro por el otro lado.',
+    kind: 'dash',
+    cooldown: 9,
+    windup: 0.12,
+    damageMult: 1.6,
+    dashSpeed: 24,
+    dashTime: 0.24,
+  },
+  vigia: {
+    id: 'lluvia_astillas',
+    nombre: 'Lluvia de Astillas',
+    desc: 'Sueltas una andanada que revienta en un radio ancho: daño ×1,5 a lo que pille, aunque falles de puntería.',
+    kind: 'projectile',
+    cooldown: 8,
+    windup: 0.3,
+    damageMult: 1.5,
+    projSpeed: 19,
+    projRadius: 1.7,
+    projLife: 1.3,
+  },
+  cordelero: {
+    id: 'danza_cuchillas',
+    nombre: 'Danza de Cuchillas',
+    desc: 'Torbellino de dagas a tu alrededor: daño ×1,7 en círculo completo. Corto de alcance, largo de rencor.',
+    kind: 'heavy',
+    cooldown: 8,
+    windup: 0.2,
+    damageMult: 1.7,
+    range: 2.7,
+    arc: Math.PI * 2,
+    knockback: 0.8,
+  },
+  hachero: {
+    id: 'hachazo_sismico',
+    nombre: 'Hachazo Sísmico',
+    desc: 'Estrellas el hacha contra el lomo del coloso: daño ×3 en un semicírculo enorme y todo sale volando.',
+    kind: 'heavy',
+    cooldown: 12,
+    windup: 0.45,
+    damageMult: 3,
+    range: 4.4,
+    arc: Math.PI * 1.1,
+    knockback: 4.5,
+  },
+  fumarel: {
+    id: 'aliento_toxico',
+    nombre: 'Aliento del Mar Tóxico',
+    desc: 'Una nube densa que avanza sola, lenta y enorme: daño ×2,6 a lo que engulle.',
+    kind: 'projectile',
+    cooldown: 11,
+    windup: 0.4,
+    damageMult: 2.6,
+    projSpeed: 11,
+    projRadius: 2.1,
+    projLife: 2.2,
+  },
+};
+
 export interface Projectile {
   id: number;
   x: number;
@@ -164,6 +228,7 @@ export interface Projectile {
   damageMin: number;
   damageMax: number;
   kind: string; // id de la habilidad, para el VFX
+  mods?: HitMods; // crítico/estados del arma que lo disparó, congelados al salir
 }
 
 // Resuelve la habilidad anunciada del jugador (tras su windup).
@@ -175,6 +240,7 @@ export function resolveAbility(
   spawnProjectile: (proj: Omit<Projectile, 'id' | 'px' | 'pz'>) => void,
   emit: (ev: SimEvent) => void,
   rarityMult = 1,
+  mods: HitMods = NO_MODS,
 ): void {
   const dmgMin = Math.floor(playerDamageMin(p.level) * def.damageMult * rarityMult);
   const dmgMax = Math.floor(playerDamageMax(p.level) * def.damageMult * rarityMult);
@@ -185,26 +251,12 @@ export function resolveAbility(
       for (const m of mobs) {
         if (!m.alive) continue;
         if (!inMeleeCone(p, m, def.range, def.arc)) continue;
-        const amount = rng.int(dmgMin, dmgMax);
-        m.hp = Math.max(0, m.hp - amount);
-        const killed = m.hp === 0;
-        if (killed) m.alive = false;
         if (def.knockback) {
           const d = Math.max(0.4, dist2d(p.x, p.z, m.x, m.z));
           m.x += ((m.x - p.x) / d) * def.knockback;
           m.z += ((m.z - p.z) / d) * def.knockback;
         }
-        emit({
-          type: 'hitLanded',
-          attackerId: p.id,
-          targetId: m.id,
-          amount,
-          x: m.x,
-          y: m.y + 1.1,
-          z: m.z,
-          killed,
-        });
-        if (killed) emit({ type: 'died', id: m.id, kind: 'mob' });
+        strikeTarget(rng, p, m, dmgMin, dmgMax, mods, emit);
       }
       void before;
       break;
@@ -221,6 +273,7 @@ export function resolveAbility(
         damageMin: dmgMin,
         damageMax: dmgMax,
         kind: def.id,
+        mods,
       });
       break;
     }
@@ -243,6 +296,7 @@ export function dashDamage(
   alreadyHit: Set<number>,
   emit: (ev: SimEvent) => void,
   rarityMult = 1,
+  mods: HitMods = NO_MODS,
 ): void {
   const dmgMin = Math.floor(playerDamageMin(p.level) * def.damageMult * rarityMult);
   const dmgMax = Math.floor(playerDamageMax(p.level) * def.damageMult * rarityMult);
@@ -250,21 +304,7 @@ export function dashDamage(
     if (!m.alive || alreadyHit.has(m.id)) continue;
     if (dist2d(p.x, p.z, m.x, m.z) > 1.5) continue;
     alreadyHit.add(m.id);
-    const amount = rng.int(dmgMin, dmgMax);
-    m.hp = Math.max(0, m.hp - amount);
-    const killed = m.hp === 0;
-    if (killed) m.alive = false;
-    emit({
-      type: 'hitLanded',
-      attackerId: p.id,
-      targetId: m.id,
-      amount,
-      x: m.x,
-      y: m.y + 1.1,
-      z: m.z,
-      killed,
-    });
-    if (killed) emit({ type: 'died', id: m.id, kind: 'mob' });
+    strikeTarget(rng, p, m, dmgMin, dmgMax, mods, emit);
   }
 }
 
@@ -286,21 +326,7 @@ export function stepProjectiles(
     for (const m of mobs) {
       if (!m.alive) continue;
       if (dist2d(pr.x, pr.z, m.x, m.z) > pr.radius + 0.5) continue;
-      const amount = rng.int(pr.damageMin, pr.damageMax);
-      m.hp = Math.max(0, m.hp - amount);
-      const killed = m.hp === 0;
-      if (killed) m.alive = false;
-      emit({
-        type: 'hitLanded',
-        attackerId: -1,
-        targetId: m.id,
-        amount,
-        x: m.x,
-        y: m.y + 1.1,
-        z: m.z,
-        killed,
-      });
-      if (killed) emit({ type: 'died', id: m.id, kind: 'mob' });
+      strikeTarget(rng, null, m, pr.damageMin, pr.damageMax, pr.mods ?? NO_MODS, emit);
       dead = true;
       break;
     }

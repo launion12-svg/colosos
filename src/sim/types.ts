@@ -131,11 +131,22 @@ export interface Entity {
   level: number;
   blocking: boolean;
   hasShield: boolean;
-  // habilidad del set activo (tecla 1)
+  // habilidades del set activo (teclas 1 y 2)
   abilityCooldown: number; // SIEMPRE la del set activo (se permutan al cambiar)
   abilityCooldownOther: number; // la del set guardado
+  ability2Cooldown: number; // la segunda, que abre el árbol de talentos
+  ability2CooldownOther: number;
   abilityWindup: number;
+  abilitySlot: number; // 1 o 2: cuál está anunciada y pendiente de resolver
   dashTime: number;
+  // estados que te ponen encima (sangrado, veneno, quemadura, freno)
+  dotDps: number;
+  dotTime: number;
+  dotKind: string;
+  dotAccum: number; // daño fraccionado pendiente de redondear
+  slowMult: number; // 0,25 = te mueves un 25% más lento
+  slowTime: number;
+  damageTakenMult: number; // 1 = normal; lo baja la armadura del árbol
   // doble equipo: tu arma es tu clase
   setA: string;
   setB: string;
@@ -144,6 +155,9 @@ export interface Entity {
   ownedWeapons: string[]; // el zurrón: todo lo looteado se conserva
   weaponRarity: Record<string, number>; // calidad por tipo (0 común, 1 mágica, 2 rara)
   // energía (esprint y salto)
+  // talentos: puntos por gastar y lo gastado en el árbol de cada arma
+  talentPoints: number;
+  talents: Record<string, Record<string, number>>;
   stamina: number;
   staminaDelay: number;
   winded: boolean; // vació la barra: no esprinta hasta recuperar el mínimo
@@ -160,6 +174,7 @@ export interface MoveInput {
   attack: boolean; // flanco
   block: boolean; // mantenido: cubrirse con el escudo
   ability: boolean; // flanco: la habilidad del set activo (tecla 1)
+  ability2: boolean; // flanco: la segunda habilidad, si el árbol la ha abierto (tecla 2)
   sprint: boolean; // mantenido: esprintar (Shift)
   swap: boolean; // flanco: cambiar de set de arma (tecla X)
 }
@@ -172,6 +187,7 @@ export const IDLE_INPUT: MoveInput = {
   attack: false,
   block: false,
   ability: false,
+  ability2: false,
   sprint: false,
   swap: false,
 };
@@ -188,7 +204,21 @@ export type SimEvent =
       y: number;
       z: number;
       killed: boolean;
+      crit?: boolean;
     }
+  | { type: 'healed'; id: number; amount: number }
+  | {
+      type: 'dotDamage';
+      id: number;
+      amount: number;
+      kind: string;
+      x: number;
+      y: number;
+      z: number;
+      killed: boolean;
+    }
+  | { type: 'talentSpent'; setId: string; nodeId: string; rank: number }
+  | { type: 'talentsReset'; points: number }
   | { type: 'jumped'; id: number }
   | { type: 'landed'; id: number; fallSpeed: number }
   | { type: 'aggroed'; id: number }
@@ -197,7 +227,7 @@ export type SimEvent =
   | { type: 'fellInMist'; id: number }
   | { type: 'xpGained'; id: number; amount: number }
   | { type: 'leveledUp'; id: number; level: number }
-  | { type: 'abilityUsed'; id: number; ability: string }
+  | { type: 'abilityUsed'; id: number; ability: string; slot: number }
   | { type: 'weaponSwapped'; id: number; setId: string }
   | { type: 'lootDropped'; dropId: number; x: number; y: number; z: number; setId: string; rarity: number }
   | { type: 'lootPickedUp'; dropId: number; setId: string; rarity: number; upgraded: boolean }

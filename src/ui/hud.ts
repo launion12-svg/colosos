@@ -7,6 +7,7 @@ export const GLYPHS: Record<string, string> = {
   medula: '⚔',
   vigia: '➶',
   cordelero: '⇻',
+  hachero: '⚒',
   fumarel: '✦',
 };
 
@@ -35,6 +36,11 @@ export class Hud {
   private slotEl: HTMLElement | null = null;
   private abilityCooldownTotal = 1;
   private prevAbilityCd = 0;
+  private slot2El: HTMLElement | null = null;
+  private slot2Cd: HTMLElement | null = null;
+  private ability2CooldownTotal = 1;
+  private prevAbility2Cd = 0;
+  private talentBadge: HTMLElement | null = null;
   private stamFill: HTMLElement | null = null;
   private toastEl!: HTMLElement;
   private toastTimer = 0;
@@ -55,6 +61,11 @@ export class Hud {
                <span class="slot-glyph" id="slot-glyph"></span>
                <span class="slot-key">1</span>
                <div id="slot-cd"></div>
+             </div>
+             <div class="slot ornate ornate-slot hidden" id="slot-2">
+               <span class="slot-glyph" id="slot2-glyph"></span>
+               <span class="slot-key">2</span>
+               <div id="slot2-cd"></div>
              </div>
              <div class="slot slot-small ornate ornate-slot" id="slot-swap" title="Cambiar de arma (X)">
                <span class="slot-glyph" id="swap-glyph"></span>
@@ -83,9 +94,12 @@ export class Hud {
       <button id="fullscreen-btn" title="Pantalla completa">⛶</button>
       <div id="death-overlay" class="hidden">Has caído.<br><span>El coloso sigue caminando...</span></div>
       ${abilityHtml}
+      <button id="talent-btn" class="ornate ornate-soft" title="Árbol de talentos (T)">
+        Talentos<span id="talent-badge" class="hidden">0</span>
+      </button>
       <div id="toast" class="hidden"></div>
       <div id="fct-container"></div>
-      <div id="help">WASD moverte · Shift esprintar · Espacio saltar · Click izq / J atacar · 1: habilidad${blockHint} · Rueda: zoom · I: inventario · F: pantalla completa</div>
+      <div id="help">WASD moverte · Shift esprintar · Espacio saltar · Click izq / J atacar · 1 / 2: habilidades${blockHint} · T: talentos · Rueda: zoom · I: inventario · F: pantalla completa</div>
     `;
     this.playerHpFill = root.querySelector('#php-fill')!;
     this.playerHpText = root.querySelector('#php-text')!;
@@ -100,6 +114,9 @@ export class Hud {
     this.fctContainer = root.querySelector('#fct-container')!;
     this.toastEl = root.querySelector('#toast')!;
     this.slotCd = root.querySelector('#slot-cd');
+    this.slot2Cd = root.querySelector('#slot2-cd');
+    this.slot2El = root.querySelector('#slot-2');
+    this.talentBadge = root.querySelector('#talent-badge');
     this.stamFill = root.querySelector('#pstam-fill');
 
     // tooltip de la habilidad al pasar el ratón por el slot
@@ -112,6 +129,19 @@ export class Hud {
       slot.addEventListener('animationend', () => slot.classList.remove('ready'));
     }
     this.slotEl = slot;
+    if (this.slot2El && tooltip) {
+      this.slot2El.addEventListener('mouseenter', () => {
+        this.showTooltip(this.ability2Info);
+        tooltip.classList.remove('hidden');
+      });
+      this.slot2El.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+      this.slot2El.addEventListener('animationend', () =>
+        this.slot2El?.classList.remove('ready'),
+      );
+    }
+    if (slot && tooltip) {
+      slot.addEventListener('mouseenter', () => this.showTooltip(this.ability1Info));
+    }
     if (this.sets.length) this.setActiveSet(this.sets[0].id);
 
     // pantalla completa: botón + tecla F. El HUD es pointer-events:none,
@@ -131,6 +161,39 @@ export class Hud {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyF' && !e.repeat) toggleFs();
     });
+  }
+
+  private ability1Info: { nombre: string; cooldown: number; desc: string; key: string } | null =
+    null;
+  private ability2Info: { nombre: string; cooldown: number; desc: string; key: string } | null =
+    null;
+
+  private showTooltip(
+    info: { nombre: string; cooldown: number; desc: string; key: string } | null,
+  ): void {
+    if (!info) return;
+    const q = (sel: string) => document.querySelector(sel) as HTMLElement | null;
+    const tn = q('#tt-name');
+    if (tn) tn.textContent = info.nombre;
+    const tc = q('#tt-cd');
+    if (tc) tc.textContent = `Tecla ${info.key} · enfriamiento ${Math.round(info.cooldown)}s`;
+    const td = q('#tt-desc');
+    if (td) td.textContent = info.desc;
+  }
+
+  // La segunda habilidad solo aparece cuando el árbol del arma la ha abierto.
+  setAbility2(info: { nombre: string; cooldown: number; desc: string } | null): void {
+    const q = (sel: string) => document.querySelector(sel) as HTMLElement | null;
+    if (!this.slot2El) return;
+    this.slot2El.classList.toggle('hidden', !info);
+    if (!info) {
+      this.ability2Info = null;
+      return;
+    }
+    this.ability2Info = { ...info, key: '2' };
+    this.ability2CooldownTotal = info.cooldown;
+    const g = q('#slot2-glyph');
+    if (g) g.textContent = '✹';
   }
 
   setTarget(id: number): void {
@@ -187,6 +250,21 @@ export class Hud {
       }
       this.prevAbilityCd = player.abilityCooldown;
     }
+    if (this.slot2Cd && this.slot2El && !this.slot2El.classList.contains('hidden')) {
+      const pct = Math.max(0, player.ability2Cooldown / this.ability2CooldownTotal) * 100;
+      this.slot2Cd.style.height = `${pct}%`;
+      if (this.prevAbility2Cd > 0 && player.ability2Cooldown <= 0) {
+        this.slot2El.classList.remove('ready');
+        void this.slot2El.offsetWidth;
+        this.slot2El.classList.add('ready');
+      }
+      this.prevAbility2Cd = player.ability2Cooldown;
+    }
+    // puntos de talento sin gastar: el botón lo canta
+    if (this.talentBadge) {
+      this.talentBadge.textContent = String(player.talentPoints);
+      this.talentBadge.classList.toggle('hidden', player.talentPoints <= 0);
+    }
   }
 
   // Aviso breve en el centro de la pantalla (zurrón lleno, etc.)
@@ -216,12 +294,8 @@ export class Hud {
     if (g) g.textContent = GLYPHS[active.id] ?? '✦';
     const n = q('#slot-name');
     if (n) n.textContent = active.nombre;
-    const tn = q('#tt-name');
-    if (tn) tn.textContent = active.nombre;
-    const tc = q('#tt-cd');
-    if (tc) tc.textContent = `Tecla 1 · enfriamiento ${active.cooldown}s`;
-    const td = q('#tt-desc');
-    if (td) td.textContent = active.desc;
+    this.ability1Info = { ...active, key: '1' };
+    this.showTooltip(this.ability1Info);
     const sg = q('#swap-glyph');
     if (sg && other) sg.textContent = GLYPHS[other.id] ?? '✦';
     const swapSlot = q('#slot-swap');

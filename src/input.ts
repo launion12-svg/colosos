@@ -9,6 +9,7 @@ export class InputReader {
   private attackPressed = false;
   private blockHeld = false;
   private abilityPressed = false;
+  private ability2Pressed = false;
   private swapPressed = false;
   debugBlock = false; // para capturas/depuración: mantiene el bloqueo
   // cámara orbital controlada con el ratón
@@ -29,6 +30,7 @@ export class InputReader {
       }
       if (e.code === 'KeyJ') this.attackPressed = true;
       if (e.code === 'Digit1') this.abilityPressed = true;
+      if (e.code === 'Digit2') this.ability2Pressed = true;
       if (e.code === 'KeyX') this.swapPressed = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -92,12 +94,14 @@ export class InputReader {
       attack: this.attackPressed,
       block: this.blockHeld || this.debugBlock, // solo botón derecho (Shift ahora esprinta)
       ability: this.abilityPressed,
+      ability2: this.ability2Pressed,
       sprint: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'),
       swap: this.swapPressed,
     };
     this.jumpPressed = false;
     this.attackPressed = false;
     this.abilityPressed = false;
+    this.ability2Pressed = false;
     this.swapPressed = false;
     return out;
   }

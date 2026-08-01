@@ -111,7 +111,7 @@
     .slot-key {
       position: absolute; top: 2px; left: 5px; font-size: 10px; color: #c8b46a;
     }
-    #slot-cd {
+    #slot-cd, #slot2-cd {
       position: absolute; left: 0; bottom: 0; width: 100%; height: 0%;
       background: rgba(8, 10, 20, 0.82); border-top: 1px solid rgba(200, 164, 74, 0.5);
       transition: height 0.1s linear;
@@ -192,6 +192,94 @@
     }
     .inv-grid .inv-cell { margin: 0; }
     .inv-hint { margin-top: 10px; font-size: 9.5px; color: #8a8fa8; line-height: 1.5; text-align: center; }
+    /* --- continuar partida --- */
+    #continue-prompt {
+      position: fixed; inset: 0; z-index: 20; display: flex;
+      align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at center, #101838, #060a1c 70%);
+      font-family: 'Segoe UI', system-ui, sans-serif; color: #e8e4d8;
+    }
+    .cp-panel {
+      position: relative; text-align: center; padding: 28px 34px;
+      background: rgba(10, 14, 32, 0.95); border: 2px solid #86713d; border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    }
+    .cp-title { font-size: 20px; letter-spacing: 4px; color: #ffd35c; }
+    .cp-sub { font-size: 11px; color: #b8b0a0; margin: 8px 0 18px; letter-spacing: 1px; }
+    .cp-buttons { display: flex; gap: 10px; justify-content: center; }
+    .cp-buttons button {
+      cursor: pointer; font: inherit; font-size: 12px; letter-spacing: 1.5px;
+      padding: 9px 18px; border-radius: 6px; color: #e8dcc0;
+      background: rgba(30, 26, 20, 0.9); border: 1px solid #6a5a3a;
+    }
+    .cp-buttons button:hover { border-color: #ffd35c; color: #ffd35c; }
+    #cp-continue { border-color: #86713d; color: #ffd35c; }
+    .cp-warn { font-size: 9px; color: #8a8fa8; margin-top: 14px; }
+    /* --- árbol de talentos --- */
+    #talents {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: min(920px, 94vw); max-height: 88vh; overflow-y: auto;
+      background: linear-gradient(rgba(16, 18, 34, 0.97), rgba(9, 11, 24, 0.97));
+      border: 2px solid #86713d; border-radius: 10px; padding: 20px 24px;
+      pointer-events: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    }
+    .talent-title { font-size: 15px; color: #ffd35c; letter-spacing: 2px; text-align: center; }
+    .talent-sub {
+      font-size: 10px; color: #8a8fa8; text-align: center; margin: 6px 0 14px; line-height: 1.5;
+    }
+    .talent-cols { display: flex; gap: 16px; justify-content: center; align-items: flex-start; }
+    .talent-tree {
+      flex: 1 1 0; min-width: 0; border: 1px solid #3a3426; border-radius: 8px;
+      padding: 10px; background: rgba(20, 16, 14, 0.45);
+    }
+    .talent-tree.in-hand { border-color: #86713d; box-shadow: 0 0 14px rgba(216,180,92,0.18) inset; }
+    .tt-head {
+      font-size: 13px; color: #ffd35c; letter-spacing: 1.5px; text-align: center;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .tt-head span { font-size: 9.5px; color: #b8b0a0; letter-spacing: 1px; }
+    .tt-points { font-size: 9px; color: #8a8fa8; text-align: center; margin: 4px 0 10px; }
+    .talent-tier { margin-bottom: 8px; }
+    .talent-tier.tier-closed { opacity: 0.45; }
+    .tier-lock { font-size: 8.5px; color: #a8845c; text-align: center; margin-bottom: 3px; }
+    .tier-row { display: flex; gap: 8px; }
+    .talent-node {
+      flex: 1 1 0; min-width: 0; cursor: pointer; padding: 7px 8px;
+      border: 1px solid #55492f; border-radius: 6px;
+      background: linear-gradient(rgba(40, 32, 26, 0.8), rgba(22, 18, 16, 0.9));
+    }
+    .talent-node:hover { border-color: #ffd35c; }
+    .talent-node.available { border-color: #7fd8a0; box-shadow: 0 0 10px rgba(127,216,160,0.25) inset; }
+    .talent-node.full { border-color: #ffd35c; background: linear-gradient(rgba(70, 56, 26, 0.85), rgba(30, 24, 14, 0.95)); }
+    .talent-node.locked { cursor: not-allowed; }
+    .talent-node.nope { animation: nope 0.28s ease; }
+    .tn-name { font-size: 11px; color: #ffe9b0; margin-bottom: 2px; }
+    .tn-rank { font-size: 9px; color: #c8b46a; margin-bottom: 3px; }
+    .tn-desc { font-size: 9px; color: #9aa0b4; line-height: 1.45; }
+    .talent-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-top: 12px; flex-wrap: wrap;
+    }
+    .talent-hint { font-size: 9px; color: #8a8fa8; }
+    #talent-reset {
+      pointer-events: auto; cursor: pointer; font: inherit; font-size: 10px;
+      color: #e8dcc0; background: rgba(30, 26, 20, 0.9); border: 1px solid #6a5a3a;
+      border-radius: 6px; padding: 6px 12px;
+    }
+    #talent-reset:hover { border-color: #ffd35c; color: #ffd35c; }
+    #talent-btn {
+      position: absolute; right: 14px; top: 108px; pointer-events: auto; cursor: pointer;
+      font: inherit; font-size: 10px; letter-spacing: 1.5px; color: #e8dcc0;
+      background: rgba(16, 18, 34, 0.9); border: 1px solid #6a5a3a; border-radius: 6px;
+      padding: 7px 12px;
+    }
+    #talent-btn:hover { border-color: #ffd35c; color: #ffd35c; }
+    #talent-badge {
+      display: inline-block; margin-left: 6px; min-width: 15px; padding: 0 4px;
+      border-radius: 8px; background: #7fd8a0; color: #10240f; font-size: 9px;
+      text-align: center; animation: pulso 1.6s ease-in-out infinite;
+    }
+    @keyframes pulso { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
     /* --- pantalla de selección --- */
     #select-ui { position: absolute; inset: 0; transition: opacity 0.6s ease; }
     #select-ui.fade-out { opacity: 0; }
@@ -268,6 +356,9 @@
     }
     .fct.dmg { color: #ffd35c; }
     .fct.dmg-in { color: #ff5040; font-size: 23px; }
+    .fct.crit { color: #fff0a8; font-size: 34px; text-shadow: 0 0 14px #ff9b2f, 0 2px 4px #000; }
+    .fct.dot { color: #ff8a4a; font-size: 15px; opacity: 0.95; }
+    .fct.heal { color: #7fd8a0; font-size: 17px; }
     .fct.xp { color: #9fe870; font-size: 15px; }
   </style>
 </head>

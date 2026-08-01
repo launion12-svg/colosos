@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { AudioSink } from './game/audio';
 import { classById, type ClassDef } from './game/classes';
 import { CLASS_ABILITY, WEAPON_SET_INFO } from './sim/abilities';
+import { applySave, clearSave, readSave, writeSave } from './game/save';
 import { InputReader } from './input';
 import { GameRenderer } from './render/renderer';
 import { SelectScreen } from './select/select_screen';
@@ -13,6 +14,7 @@ import { Sim } from './sim/sim';
 import { DT } from './sim/types';
 import { Hud } from './ui/hud';
 import { InventoryWindow } from './ui/inventory';
+import { TalentWindow } from './ui/talents';
 
 const WORLD_SEED = 20260730;
 
@@ -29,6 +31,19 @@ async function boot(): Promise<void> {
   let defA: ClassDef | undefined = classById(params.get('clase'));
   let defB: ClassDef | undefined = classById(params.get('clase2'));
   let playerName = '';
+  // ¿hay partida guardada? Se pregunta antes del campamento: quien vuelve no
+  // tiene por qué volver a elegir arma.
+  const guardada = params.has('clase') || params.has('nuevo') ? null : readSave();
+  if (guardada) {
+    const seguir = await preguntarContinuar(guardada);
+    if (seguir) {
+      defA = classById(guardada.setA);
+      defB = classById(guardada.setB);
+      playerName = guardada.nombre;
+    } else {
+      clearSave();
+    }
+  }
   if (!defA) {
     const select = new SelectScreen(gl, hudRoot);
     (window as unknown as Record<string, unknown>).__colososSelect = select;
@@ -45,6 +60,7 @@ async function boot(): Promise<void> {
     setA: defA.id,
     setB: defB?.id ?? '', // la segunda arma cae de los bichos
   });
+  if (guardada && defA.id === guardada.setA) applySave(sim, guardada);
   const setInfo = (id: string) => {
     const ab = CLASS_ABILITY[id];
     return {
@@ -63,7 +79,29 @@ async function boot(): Promise<void> {
 
   await renderer.loadAssets();
   const inventory = new InventoryWindow(hudRoot, sim);
+  const talents = new TalentWindow(hudRoot, sim);
   document.getElementById('loading')?.remove();
+
+  // La segunda habilidad aparece y desaparece con el arma y con el árbol:
+  // se refresca cuando cambia algo que pueda abrirla o cerrarla.
+  const refreshAbility2 = () => {
+    const ab2 = sim.ability2;
+    hud.setAbility2(ab2 ? { nombre: ab2.nombre, cooldown: ab2.cooldown, desc: ab2.desc } : null);
+  };
+  refreshAbility2();
+
+  // Guardado: se marca sucio con lo que cuesta ganar y se vuelca cada pocos
+  // segundos, no en cada tick (escribir en disco 20 veces por segundo, no).
+  let sucio = false;
+  const marcar = () => (sucio = true);
+  window.setInterval(() => {
+    if (!sucio) return;
+    sucio = false;
+    writeSave(sim, Date.now());
+  }, 3000);
+  window.addEventListener('beforeunload', () => {
+    if (sucio) writeSave(sim, Date.now());
+  });
 
   let acc = 0;
   let last = performance.now();
@@ -88,6 +126,22 @@ async function boot(): Promise<void> {
         for (const ev of events) {
           renderer.onSimEvent(ev);
           if (ev.type === 'lootPickedUp' || ev.type === 'weaponEquipped') inventory.refresh();
+          switch (ev.type) {
+            case 'leveledUp':
+            case 'talentSpent':
+            case 'talentsReset':
+            case 'weaponSwapped':
+            case 'weaponEquipped':
+              refreshAbility2();
+              talents.refresh();
+              marcar();
+              break;
+            case 'lootPickedUp':
+              marcar();
+              break;
+            default:
+              break;
+          }
         }
       }
     }
@@ -146,6 +200,7 @@ async function boot(): Promise<void> {
           attack: false,
           block: false,
           ability: false,
+          ability2: false,
           sprint: false,
           swap: false,
           ...inp,
@@ -158,6 +213,35 @@ async function boot(): Promise<void> {
   };
   (window as unknown as Record<string, unknown>).__colosos = hooks;
   (window as unknown as Record<string, unknown>).__colososReady = true;
+}
+
+// Pregunta de "continuar o empezar de nuevo". DOM a pelo y una promesa: no
+// merece un módulo, pero sí un sitio propio fuera del arranque.
+async function preguntarContinuar(save: import('./game/save').SaveData): Promise<boolean> {
+  const dias = Math.floor((Date.now() - save.fecha) / 86400000);
+  const cuando = dias <= 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`;
+  const el = document.createElement('div');
+  el.id = 'continue-prompt';
+  el.innerHTML = `
+    <div class="cp-panel ornate">
+      <div class="cp-title">Te esperábamos</div>
+      <div class="cp-sub">${save.nombre} · Nivel ${save.level} · última vez ${cuando}</div>
+      <div class="cp-buttons">
+        <button id="cp-continue">Continuar</button>
+        <button id="cp-new">Empezar de nuevo</button>
+      </div>
+      <div class="cp-warn">Empezar de nuevo borra el nivel, las armas y los talentos.</div>
+    </div>`;
+  document.body.appendChild(el);
+  document.getElementById('loading')?.remove();
+  return new Promise<boolean>((resolve) => {
+    const cerrar = (v: boolean) => {
+      el.remove();
+      resolve(v);
+    };
+    el.querySelector('#cp-continue')?.addEventListener('click', () => cerrar(true));
+    el.querySelector('#cp-new')?.addEventListener('click', () => cerrar(false));
+  });
 }
 
 // import estático de la función de terreno para el hook de teleport
