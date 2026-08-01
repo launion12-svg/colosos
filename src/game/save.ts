@@ -22,6 +22,8 @@ export interface SaveData {
   weaponLevel: Record<string, number>;
   weaponXp: Record<string, number>;
   potions: number;
+  helmet: number;
+  helmetOn: boolean;
   fecha: number;
 }
 
@@ -53,6 +55,8 @@ export function writeSave(sim: Sim, fecha: number): void {
     weaponLevel: { ...p.weaponLevel },
     weaponXp: { ...p.weaponXp },
     potions: p.potions,
+    helmet: p.helmet,
+    helmetOn: p.helmetOn,
     talents: JSON.parse(JSON.stringify(p.talents)) as SaveData['talents'],
     fecha,
   };
@@ -88,6 +92,8 @@ export function applySave(sim: Sim, data: SaveData): void {
   p.weaponLevel = data.weaponLevel ?? {};
   p.weaponXp = data.weaponXp ?? {};
   p.potions = data.potions ?? 0;
+  p.helmet = data.helmet ?? -1;
+  p.helmetOn = data.helmetOn ?? true;
   for (const id of p.ownedWeapons) sim.initWeapon(id); // altas que falten
   sim.rebuildDerived();
 }

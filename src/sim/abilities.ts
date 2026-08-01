@@ -34,6 +34,13 @@ export const WEAPON_SET_INFO: Record<string, WeaponSetInfo> = {
   vigia: { hasShield: false, rangedBasic: { speed: 28, life: 0.6, radius: 0.65, kind: 'flecha' } },
   cordelero: { hasShield: false, basicDmgMult: 0.78, basicCooldownMult: 0.62 },
   hachero: { hasShield: false, basicDmgMult: 1.5, basicCooldownMult: 1.5 },
+  // la ballesta: lenta de recargar y demoledora, el contrapunto del arco
+  ballestero: {
+    hasShield: false,
+    basicDmgMult: 1.7,
+    basicCooldownMult: 1.85,
+    rangedBasic: { speed: 40, life: 0.55, radius: 0.6, kind: 'virote' },
+  },
   // el bastón no se blande: destila brasas de niebla. Más lentas y más gordas
   // que una flecha (perdonan la puntería), pero de alcance algo más corto.
   fumarel: { hasShield: false, rangedBasic: { speed: 21, life: 0.7, radius: 0.85, kind: 'brasa' } },
@@ -136,6 +143,18 @@ export const CLASS_ABILITY: Record<string, AbilityDef> = {
     arc: Math.PI * 2, // el círculo entero: no hay espalda que valga
     knockback: 3,
   },
+  ballestero: {
+    id: 'saeta_perforante',
+    nombre: 'Saeta Perforante',
+    desc: 'Un virote lanzado a quemarropa que atraviesa lo que pilla: daño ×2,6 y vuela recto y rapidísimo.',
+    kind: 'projectile',
+    cooldown: 5,
+    windup: 0.4,
+    damageMult: 2.6,
+    projSpeed: 46,
+    projRadius: 0.75,
+    projLife: 0.9,
+  },
   fumarel: {
     id: 'chispa_niebla',
     nombre: 'Chispa de Niebla',
@@ -199,6 +218,18 @@ export const CLASS_ABILITY2: Record<string, AbilityDef> = {
     range: 4.4,
     arc: Math.PI * 1.1,
     knockback: 4.5,
+  },
+  ballestero: {
+    id: 'andanada_virotes',
+    nombre: 'Andanada de Virotes',
+    desc: 'Vacías el cargador de golpe en un abanico ancho: daño ×1,9 a todo lo que se cruce por delante.',
+    kind: 'projectile',
+    cooldown: 10,
+    windup: 0.55,
+    damageMult: 1.9,
+    projSpeed: 30,
+    projRadius: 2,
+    projLife: 1.4,
   },
   fumarel: {
     id: 'aliento_toxico',

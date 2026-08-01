@@ -6,6 +6,7 @@
 import { CLASSES, weaponName } from '../game/classes';
 import type { Sim } from '../sim/sim';
 import { BAG_SLOTS, RARITY_NAMES } from '../sim/abilities';
+import { HELMET_NAMES } from '../sim/types';
 import { iconFactory } from './icon_factory';
 
 export class InventoryWindow {
@@ -60,6 +61,22 @@ export class InventoryWindow {
       </div>`;
   }
 
+  // El hueco de la cabeza: con casco muestra su calidad y se puede quitar de
+  // un click (para verte la cara); vacío, dice de dónde salen.
+  private helmetSlotHtml(): string {
+    const p = this.sim.player;
+    if (p.helmet < 0) {
+      return `<div class="doll-slot locked" style="grid-area: head" title="Casco — cae de las criaturas"><span>⛑</span></div>`;
+    }
+    const nombre = HELMET_NAMES[p.helmet];
+    return `<div class="doll-slot ${p.helmetOn ? 'in-hand' : ''}" style="grid-area: head"
+        title="${nombre} · Calidad: ${RARITY_NAMES[p.helmet]} · click para ${p.helmetOn ? 'quitártelo' : 'ponértelo'}">
+        <div class="doll-slot-label">${p.helmetOn ? 'PUESTO' : 'Guardado'}</div>
+        <div class="inv-cell ornate ornate-slot helmet-cell r${p.helmet}"><span>⛑</span></div>
+        <div class="doll-wname r${p.helmet}">${nombre}</div>
+      </div>`;
+  }
+
   private render(): void {
     const p = this.sim.player;
     const activeA = !p.activeSetB;
@@ -72,7 +89,7 @@ export class InventoryWindow {
       <div class="inv-title">${p.name} · Nv ${p.level}</div>
       <div class="inv-doll">
         <div class="inv-silhouette"></div>
-        <div class="doll-slot locked" style="grid-area: head" title="Casco — llegará con las armaduras"><span>⛑</span></div>
+        ${this.helmetSlotHtml()}
         <div class="doll-slot locked" style="grid-area: amulet" title="Amuleto — llegará con las armaduras"><span>◈</span></div>
         <div class="doll-slot drop-slot ${activeA ? 'in-hand' : ''}" data-slot="A" style="grid-area: main" title="Arma principal — suelta aquí un arma del zurrón">
           <div class="doll-slot-label">${activeA ? 'EN MANO' : 'Guardada'}</div>
@@ -108,6 +125,10 @@ export class InventoryWindow {
     for (const cell of this.el.querySelectorAll<HTMLElement>('.inv-cell[data-model]')) {
       this.applyIcon(cell, cell.dataset.model ?? '', Number(cell.dataset.rarity ?? 0));
     }
+    const casco = this.el.querySelector<HTMLElement>('.helmet-cell');
+    casco?.addEventListener('click', () => {
+      if (this.sim.toggleHelmet()) this.render();
+    });
     for (const cell of this.el.querySelectorAll<HTMLElement>('.inv-cell.clickable')) {
       cell.addEventListener('click', () => {
         const id = cell.dataset.id;

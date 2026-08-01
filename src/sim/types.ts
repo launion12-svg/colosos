@@ -99,6 +99,12 @@ export const REGEN_PER_SEC = 0.05; // del máximo de vida, por segundo (20 s a t
 export const SIT_REGEN_MULT = 2.5; // sentado se recupera mucho antes
 export const SIT_STAMINA_MULT = 2; // y el aire vuelve al doble de rápido
 
+// --- Casco: la primera pieza de armadura, y se ve ---
+export const HELMET_DROP_CHANCE = 0.18;
+export const HELMET_HP = [10, 20, 34]; // vida por calidad
+export const HELMET_ARMOR = [0.03, 0.06, 0.1]; // reducción de daño por calidad
+export const HELMET_NAMES = ['Yelmo abollado', 'Yelmo de placas', 'Yelmo del Coloso'];
+
 // --- Pociones (el único consumible: curan un pellizco gordo y tienen freno) ---
 export const POTION_MAX = 5;
 export const POTION_HEAL_PCT = 0.4; // del máximo de vida
@@ -193,6 +199,8 @@ export interface Entity {
   weaponXp: Record<string, number>;
   potions: number;
   potionCooldown: number;
+  helmet: number; // -1 sin casco; 0..2 la calidad del que tienes
+  helmetOn: boolean; // se puede llevar guardado para ir a cara descubierta
   dodgeTime: number; // >0: esquiva en curso (desplazamiento)
   dodgeCooldown: number;
   invuln: number; // >0: los golpes te atraviesan
@@ -274,6 +282,9 @@ export type SimEvent =
   | { type: 'potionDropped'; dropId: number; x: number; y: number; z: number }
   | { type: 'potionPickedUp'; dropId: number; total: number; lleno: boolean }
   | { type: 'potionDrunk'; amount: number; quedan: number }
+  | { type: 'helmetDropped'; dropId: number; x: number; y: number; z: number; rarity: number }
+  | { type: 'helmetPickedUp'; rarity: number; mejora: boolean }
+  | { type: 'helmetToggled'; puesto: boolean }
   | { type: 'dodged'; id: number; dirX: number; dirZ: number }
   | { type: 'evaded'; id: number; x: number; y: number; z: number }
   | { type: 'sat'; id: number; sitting: boolean }

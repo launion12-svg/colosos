@@ -16,6 +16,7 @@ export const GLYPHS: Record<string, string> = {
   vigia: '➶',
   cordelero: '⇻',
   hachero: '⚒',
+  ballestero: '➵',
   fumarel: '✦',
 };
 

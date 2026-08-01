@@ -152,7 +152,14 @@ async function boot(): Promise<void> {
         const events = sim.tick(input.sample());
         for (const ev of events) {
           renderer.onSimEvent(ev);
-          if (ev.type === 'lootPickedUp' || ev.type === 'weaponEquipped') inventory.refresh();
+          if (
+            ev.type === 'lootPickedUp' ||
+            ev.type === 'weaponEquipped' ||
+            ev.type === 'helmetPickedUp' ||
+            ev.type === 'helmetToggled'
+          ) {
+            inventory.refresh();
+          }
           if (ev.type === 'weaponLeveledUp') {
             audio.play('mastery');
             const arma = classById(ev.setId)?.nombre ?? ev.setId;
@@ -170,6 +177,8 @@ async function boot(): Promise<void> {
               marcar();
               break;
             case 'lootPickedUp':
+            case 'helmetPickedUp':
+            case 'helmetToggled':
               marcar();
               break;
             default:

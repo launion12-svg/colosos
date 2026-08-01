@@ -28,8 +28,8 @@ function placeAt(s: Sim, target: Entity, dx = 0, dz = 3): void {
 }
 
 describe('habilidades de clase', () => {
-  it('las 5 clases tienen habilidad definida', () => {
-    for (const id of ['medula', 'vigia', 'cordelero', 'hachero', 'fumarel']) {
+  it('las 6 clases tienen habilidad definida', () => {
+    for (const id of ['medula', 'vigia', 'cordelero', 'hachero', 'ballestero', 'fumarel']) {
       expect(CLASS_ABILITY[id]).toBeDefined();
       expect(CLASS_ABILITY[id].cooldown).toBeGreaterThan(0);
     }

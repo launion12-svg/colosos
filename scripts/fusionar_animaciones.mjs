@@ -9,25 +9,46 @@
 
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { mergeDocuments, prune, unpartition } from '@gltf-transform/functions';
+import { mergeDocuments, meshopt, prune, resample, unpartition } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
 const PACK = process.argv[2] ?? '/tmp/kaykit/KayKit_Adventurers_2.0_FREE';
+const ANIMS = process.argv[3] ?? '/tmp/kayanim/KayKit_Character_Animations_1.1';
 const FUENTES = [
   `${PACK}/Animations/gltf/Rig_Medium/Rig_Medium_General.glb`,
   `${PACK}/Animations/gltf/Rig_Medium/Rig_Medium_MovementBasic.glb`,
+  // el pack de animaciones aparte (también CC0) es el que trae la voltereta
+  `${ANIMS}/Animations/gltf/Rig_Medium/Rig_Medium_MovementAdvanced.glb`,
+  `${ANIMS}/Animations/gltf/Rig_Medium/Rig_Medium_CombatMelee.glb`,
+  `${ANIMS}/Animations/gltf/Rig_Medium/Rig_Medium_CombatRanged.glb`,
+  `${ANIMS}/Animations/gltf/Rig_Medium/Rig_Medium_Simulation.glb`,
 ];
 
 // Lo que de verdad usamos. Nada de traerlo todo: cada animación pesa.
-const QUEREMOS = new Set([
+const COMUNES = new Set([
   'Use_Item', // beber la poción
   'PickUp', // recoger del suelo
   'Jump_Start', // el impulso del salto
   'Jump_Land', // la caída
   'Spawn_Ground', // reaparecer
+  // La voltereta de verdad, en las cuatro direcciones
+  'Dodge_Forward',
+  'Dodge_Backward',
+  'Dodge_Left',
+  'Dodge_Right',
+  // levantarse del suelo al dejar de descansar
+  'Sit_Floor_StandUp',
 ]);
+
+// Y lo que solo necesita QUIEN lo usa: cada animación pesa, así que el mago no
+// carga el giro del hacha ni el caballero la recarga de la ballesta.
+const PROPIAS = {
+  'public/models/barbarian.glb': ['Melee_2H_Attack_Spin'], // Tajo Circular
+  'public/models/rogue_hooded.glb': ['Melee_2H_Attack_Spin'], // Danza de Cuchillas
+  'public/models/rogue.glb': ['Ranged_1H_Shoot', 'Ranged_1H_Reload', 'Ranged_1H_Aiming'],
+};
 
 const DESTINOS = [
   'public/models/knight.glb',
@@ -35,6 +56,7 @@ const DESTINOS = [
   'public/models/rogue_hooded.glb',
   'public/models/mage.glb',
   'public/models/barbarian.glb',
+  'public/models/rogue.glb', // el pícaro sin capucha: el ballestero
 ];
 
 // nuestros modelos vienen comprimidos con meshopt (así los dejó el pipeline
@@ -44,6 +66,11 @@ const io = new NodeIO()
   .registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder });
 
 for (const destino of DESTINOS) {
+  if (!existsSync(destino)) {
+    console.log(`${basename(destino).padEnd(20)} (aún no existe, se salta)`);
+    continue;
+  }
+  const QUEREMOS = new Set([...COMUNES, ...(PROPIAS[destino] ?? [])]);
   const antesBytes = readFileSync(destino).length;
   const doc = await io.read(destino);
   const animsPropias = new Set(doc.getRoot().listAnimations());
@@ -109,8 +136,15 @@ for (const destino of DESTINOS) {
     // sus huesos ya no los usa nadie: los canales apuntan a los nuestros
     nodo.dispose();
   }
-  // fusionar trae el buffer del pack aparte, y un GLB solo admite uno
-  await doc.transform(prune({ keepExtras: true }), unpartition());
+  // Las animaciones del pack vienen crudas y pesan lo suyo: se limpian los
+  // fotogramas redundantes y se recomprime con meshopt, que es como venían
+  // las nuestras. Sin esto, cada personaje engordaba 1,2 MB.
+  await doc.transform(
+    resample(),
+    prune({ keepExtras: true }),
+    unpartition(),
+    meshopt({ encoder: MeshoptEncoder }),
+  );
 
   const salida = await io.writeBinary(doc);
   writeFileSync(destino, salida);

@@ -25,6 +25,7 @@ import { CLASSES, weaponName, type ClassDef } from '../game/classes';
 import { CLASS_ABILITY, WEAPON_SET_INFO } from '../sim/abilities';
 import { BESTIARY } from '../sim/bestiary';
 import { RARITY_NAMES } from '../sim/abilities';
+import { HELMET_NAMES } from '../sim/types';
 
 const RARITY_COLORS = [0xf0f0e8, 0x5cb0ff, 0xffd35c]; // común, mágica, rara
 
@@ -43,6 +44,9 @@ interface ProjStyle {
 const PROJ_STYLE: Record<string, ProjStyle> = {
   flecha: { radius: 0.14, color: 0xd8dce8, stretch: true, burst: 8 },
   disparo_certero: { radius: 0.15, color: 0xffe2a0, stretch: true, halo: 0xffc24d, burst: 12 },
+  virote: { radius: 0.13, color: 0xc8ccd8, stretch: true, burst: 10 },
+  saeta_perforante: { radius: 0.16, color: 0xdfe6f2, stretch: true, halo: 0x9fb8d8, burst: 16 },
+  andanada_virotes: { radius: 0.3, color: 0xe8e2c8, stretch: true, halo: 0xc8a86a, burst: 24 },
   brasa: {
     radius: 0.24,
     color: 0xc08cff,
@@ -120,6 +124,7 @@ export class GameRenderer {
     Jump_Start: { ts: 1.6, dur: 0.37 },
     Jump_Land: { ts: 1.5, dur: 0.44 },
     Spawn_Ground: { ts: 1.2, dur: 1.08 },
+    Sit_Floor_StandUp: { ts: 1.5, dur: 0.72 }, // levantarse a su ritmo
   };
   private gestoHasta = -99; // reloj hasta el que el gesto en curso no se toca
   private dodgeLean = 0; // inclinación del cuerpo durante el quiebro
@@ -305,6 +310,12 @@ export class GameRenderer {
     this.scene.add(pv.group);
     this.heroViews.set(setId, pv);
     this.applyWeaponTint(setId);
+    // el cuerpo nace obedeciendo al casco: sin yelmo equipado, a cara descubierta
+    const ficha = this.setDefs.get(setId);
+    if (ficha) {
+      const jugador = this.sim.player;
+      pv.setPieceVisible(ficha.headMeshes, jugador.helmet >= 0 && jugador.helmetOn);
+    }
     return pv;
   }
 
@@ -390,6 +401,17 @@ export class GameRenderer {
 
   // Traduce los hechos del sim a juice. Cada evento con impacto: feedback en
   // el objeto, en la cámara, en el tiempo y hook de audio.
+  // El casco se ve o no se ve: refresca las mallas de cabeza de la vista en
+  // uso. Se llama al equipar, al quitárselo y al cambiar de arma (cada arma
+  // trae su propio cuerpo y sus propias piezas).
+  private refreshHelmet(): void {
+    const p = this.sim.player;
+    const v = this.views.get(p.id);
+    const def = this.setDefs.get(this.sim.activeSetId);
+    if (!v || !def) return;
+    v.setPieceVisible(def.headMeshes, p.helmet >= 0 && p.helmetOn);
+  }
+
   // Lanza un gesto del jugador si su rig lo tiene, y lo protege el tiempo que
   // dure. Si el modelo no lo trae, no pasa nada: el juego sigue igual.
   private gesto(id: number, nombre: string): void {
@@ -616,12 +638,21 @@ export class GameRenderer {
         const rel = Math.atan2(ev.dirX, ev.dirZ) - p7.yaw;
         const c = Math.cos(rel);
         const sn = Math.sin(rel);
-        let anim = 'Running_A';
-        if (c < -0.4) anim = v7?.has('Walking_Backwards') ? 'Walking_Backwards' : 'Running_A';
-        else if (sn < -0.4) anim = 'Running_Strafe_Right';
-        else if (sn > 0.4) anim = 'Running_Strafe_Left';
-        if (v7?.has(anim)) v7.play(anim, { fade: 0.04, timeScale: 1.9 });
-        this.dodgeLean = sn * 0.5; // se inclina hacia donde salta
+        // la voltereta de verdad, en la dirección en la que saltas (ojo: aquí
+        // la derecha de la cámara es (-cos, sin), o sea seno negativo)
+        let anim = 'Dodge_Forward';
+        if (c < -0.4) anim = 'Dodge_Backward';
+        else if (sn < -0.4) anim = 'Dodge_Right';
+        else if (sn > 0.4) anim = 'Dodge_Left';
+        if (v7?.has(anim)) {
+          v7.play(anim, { once: true, fade: 0.04, timeScale: 1.35 });
+          this.gestoHasta = this.elapsed + 0.29;
+          this.dodgeLean = 0; // la animación ya se inclina sola
+        } else {
+          // sin la animación (modelos viejos), el apaño de siempre
+          if (v7?.has('Running_A')) v7.play('Running_A', { fade: 0.04, timeScale: 1.9 });
+          this.dodgeLean = sn * 0.5;
+        }
         this.particles.burst(this.tmp.set(p7.x, p7.y + 0.15, p7.z), {
           count: 16,
           color: 0xe4d3b0,
@@ -656,7 +687,8 @@ export class GameRenderer {
           }
           this.hud.toast('Descansando · te curas más rápido (C para levantarte)', 2200);
         } else if (v6) {
-          v6.play('Idle', { fade: 0.15 });
+          if (v6.has('Sit_Floor_StandUp')) this.gesto(ev.id, 'Sit_Floor_StandUp');
+          else v6.play('Idle', { fade: 0.15 });
         }
         this.audio.play('swap');
         break;
@@ -665,6 +697,40 @@ export class GameRenderer {
         // la curación pasiva se ve, pero en pequeñito: nada de tapar la pelea
         const p6 = this.sim.player;
         this.damageNumbers.spawn(this.tmp.set(p6.x, p6.y + 2.1, p6.z), `+${ev.amount}`, 'heal');
+        break;
+      }
+      case 'helmetDropped': {
+        const g = new THREE.Group();
+        const cuerpo = new THREE.Mesh(
+          new THREE.SphereGeometry(0.25, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6),
+          new THREE.MeshStandardMaterial({
+            color: RARITY_COLORS[ev.rarity] ?? 0xd8d8d0,
+            metalness: 0.6,
+            roughness: 0.35,
+            emissive: ev.rarity === 2 ? 0x4a3a10 : 0x000000,
+          }),
+        );
+        cuerpo.position.y = 0.22;
+        g.add(cuerpo);
+        g.position.set(ev.x, ev.y, ev.z);
+        this.scene.add(g);
+        this.potionVisuals.set(ev.dropId, g); // mismo almacén: son bultos del suelo
+        this.audio.play('loot_drop');
+        break;
+      }
+      case 'helmetPickedUp': {
+        this.gesto(this.sim.player.id, 'PickUp');
+        this.refreshHelmet();
+        this.hud.toast(
+          `${HELMET_NAMES[ev.rarity]}${ev.mejora ? ' (mejora)' : ''} · lo llevas puesto`,
+        );
+        this.audio.play('loot_pickup');
+        this.refreshHudSets();
+        break;
+      }
+      case 'helmetToggled': {
+        this.refreshHelmet();
+        this.audio.play('swap');
         break;
       }
       case 'potionDrunk': {
@@ -763,6 +829,7 @@ export class GameRenderer {
           });
           this.flash.flash(nextView.meshes, 0xd8c8ff, 0.12);
           this.refreshHudSets();
+          this.refreshHelmet(); // el cuerpo nuevo también obedece al casco
           this.audio.play('swap');
         }
         break;
@@ -776,16 +843,21 @@ export class GameRenderer {
           // el básico ya usa Spellcast_Shoot: la habilidad alza el bastón para
           // que se distinga de un vistazo cuál de los dos estás lanzando
           chispa_niebla: { anim: 'Spellcast_Raise', ts: 2.4 },
-          tajo_circular: { anim: '2H_Melee_Attack_Chop', ts: 0.85 },
+          tajo_circular: { anim: 'Melee_2H_Attack_Spin', ts: 2.6 },
           // las segundas habilidades, las que abre el árbol de talentos
           embate_escudo: { anim: '1H_Melee_Attack_Chop', ts: 1.4 },
           lluvia_astillas: { anim: '2H_Ranged_Shoot', ts: 1.2 },
-          danza_cuchillas: { anim: 'Dualwield_Melee_Attack_Chop', ts: 1.1 },
+          danza_cuchillas: { anim: 'Melee_2H_Attack_Spin', ts: 3.4 },
           hachazo_sismico: { anim: '2H_Melee_Attack_Chop', ts: 0.7 },
           aliento_toxico: { anim: 'Spellcasting', ts: 1.1 },
         };
         const a = anims[ev.ability];
-        if (v && a) v.play(a.anim, { once: true, fade: 0.06, timeScale: a.ts });
+        // si el rig no trae la animación pedida (modelos sin el giro), se cae
+        // al ataque normal del arma en vez de quedarse plantado
+        if (v && a) {
+          const nombre = v.has(a.anim) ? a.anim : this.activeDef.attackAnim;
+          v.play(nombre, { once: true, fade: 0.06, timeScale: a.ts });
+        }
         if (ev.ability === 'golpe_vertebra') {
           this.shake.request(0.3);
           this.rig.punch(4);

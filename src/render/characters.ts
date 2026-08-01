@@ -104,6 +104,16 @@ export class CharacterView {
   // nombres de nodo ('handslot.l' -> 'handslotl'), así que comparamos
   // normalizando. El objeto hereda la escala del rig: los kits KayKit están
   // autorados a la misma escala, así que encaja sin más.
+  // Enseña u oculta piezas del cuerpo por nombre de malla. Es lo que permite
+  // quitarse el yelmo y salir a cara descubierta sin un modelo aparte.
+  setPieceVisible(nombres: string[], visible: boolean): void {
+    if (nombres.length === 0) return;
+    for (const m of this.meshes) {
+      const n = m.name;
+      if (nombres.some((x) => n === x || n.endsWith(`_${x}`))) m.visible = visible;
+    }
+  }
+
   attach(boneName: string, object: THREE.Object3D): boolean {
     const want = boneName.toLowerCase().replace(/[^a-z0-9]/g, '');
     let bone: THREE.Object3D | null = null;

@@ -61,6 +61,9 @@ import {
   DODGE_STAMINA_COST,
   DODGE_TIME,
   PLAYER_RESPAWN_TIME,
+  HELMET_ARMOR,
+  HELMET_DROP_CHANCE,
+  HELMET_HP,
   POTION_COOLDOWN,
   POTION_DROP_CHANCE,
   POTION_HEAL_PCT,
@@ -151,6 +154,8 @@ function baseEntity(id: number, kind: EntityKind, name: string): Entity {
     weaponXp: {},
     potions: 0,
     potionCooldown: 0,
+    helmet: -1,
+    helmetOn: true,
     dodgeTime: 0,
     dodgeCooldown: 0,
     invuln: 0,
@@ -181,6 +186,7 @@ export class Sim {
   readonly projectiles: Projectile[] = [];
   readonly drops: WeaponDrop[] = [];
   readonly potionDrops: { id: number; x: number; y: number; z: number }[] = [];
+  readonly helmetDrops: { id: number; x: number; y: number; z: number; rarity: number }[] = [];
   private nextProjectileId = 1;
   private nextDropId = 1;
   private dashHitIds = new Set<number>();
@@ -525,6 +531,20 @@ export class Sim {
         this.emit({ type: 'healed', id: p.id, amount: p.hp - antes });
       }
 
+      // Casco: se recoge pisándolo y solo se queda si MEJORA lo que llevas.
+      // Con casco puesto se te tapa la cabeza; sin él, sales a cara descubierta.
+      for (let i = this.helmetDrops.length - 1; i >= 0; i--) {
+        const d = this.helmetDrops[i];
+        if (dist2d(p.x, p.z, d.x, d.z) > LOOT_PICKUP_RADIUS) continue;
+        if (d.rarity <= p.helmet) continue; // peor que el tuyo: se queda en el suelo
+        const mejora = p.helmet >= 0;
+        p.helmet = d.rarity;
+        p.helmetOn = true;
+        this.helmetDrops.splice(i, 1);
+        this.refreshMaxHp();
+        this.emit({ type: 'helmetPickedUp', rarity: d.rarity, mejora });
+      }
+
       // recogida de armas del suelo: siempre al zurrón; si el hueco
       // secundario está vacío, además se equipa sola (el primer gran momento)
       for (let i = this.drops.length - 1; i >= 0; i--) {
@@ -726,6 +746,23 @@ export class Sim {
       if (!m) continue;
       // poción: tirada propia e independiente del arma. Sale del bicho, no del
       // aire, así que hay que ir a por ella (y a veces la dejas para luego).
+      // casco: su propia tirada, con la calidad que marque el nivel del bicho
+      if (this.rng.chance(HELMET_DROP_CHANCE)) {
+        const pesos = rarityWeightsForLevel(m.level);
+        const total = pesos.reduce((a, b) => a + b, 0);
+        let roll = this.rng.next() * total;
+        let rarity = 0;
+        for (let r = 0; r < pesos.length; r++) {
+          roll -= pesos[r];
+          if (roll <= 0) {
+            rarity = r;
+            break;
+          }
+        }
+        const d = { id: this.nextDropId++, x: m.x - 0.6, y: m.y, z: m.z - 0.6, rarity };
+        this.helmetDrops.push(d);
+        this.emit({ type: 'helmetDropped', dropId: d.id, x: d.x, y: d.y, z: d.z, rarity });
+      }
       if (this.rng.chance(POTION_DROP_CHANCE)) {
         const d = { id: this.nextDropId++, x: m.x + 0.6, y: m.y, z: m.z + 0.6 };
         this.potionDrops.push(d);
@@ -832,8 +869,9 @@ export class Sim {
     const p = this.player;
     const m = this.mods;
     const antes = p.maxHp;
-    p.maxHp = playerMaxHp(p.level) + m.maxHp;
-    p.damageTakenMult = 1 - m.armor;
+    const casco = p.helmet >= 0 && p.helmetOn ? p.helmet : -1;
+    p.maxHp = playerMaxHp(p.level) + m.maxHp + (casco >= 0 ? HELMET_HP[casco] : 0);
+    p.damageTakenMult = 1 - Math.min(0.6, m.armor + (casco >= 0 ? HELMET_ARMOR[casco] : 0));
     if (p.maxHp > antes) p.hp += p.maxHp - antes; // lo que suma el talento, lo regala
     p.hp = Math.min(p.hp, p.maxHp);
   }
@@ -987,6 +1025,17 @@ export class Sim {
       p.swapCooldown = SWAP_COOLDOWN;
       this.emit({ type: 'weaponSwapped', id: p.id, setId });
     }
+    return true;
+  }
+
+  // Ponerse o quitarse el casco. Quitárselo cuesta sus estadísticas, pero hay
+  // a quien le importa más verse la cara.
+  toggleHelmet(): boolean {
+    const p = this.player;
+    if (p.helmet < 0) return false;
+    p.helmetOn = !p.helmetOn;
+    this.refreshMaxHp();
+    this.emit({ type: 'helmetToggled', puesto: p.helmetOn });
     return true;
   }
 

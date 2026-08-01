@@ -18,6 +18,9 @@ export interface ClassDef {
   model: string;
   weapons: WeaponMount[];
   hasShield: boolean; // habilita el bloqueo con botón derecho
+  // Mallas de la cabeza que SOLO se ven con casco equipado. Cada modelo trae
+  // las suyas sueltas dentro del GLB, así que quitarse el yelmo es ocultarlas.
+  headMeshes: string[];
   gesture: string; // animación del gesto en la pantalla de selección
   attackAnim: string;
   attackTimeScale: number;
@@ -36,6 +39,7 @@ export const CLASSES: ClassDef[] = [
       { bone: 'handslot.l', model: 'models/shield_round.glb', offset: [0, 0.02, 0.045] },
     ],
     hasShield: true,
+    headMeshes: ['Helmet', 'HelmetVisor'],
     gesture: 'Cheer',
     attackAnim: '1H_Melee_Attack_Slice_Diagonal',
     attackTimeScale: 1.35,
@@ -49,6 +53,7 @@ export const CLASSES: ClassDef[] = [
     model: 'models/ranger.glb',
     weapons: [{ bone: 'handslot.l', model: 'models/bow.glb', rot: [Math.PI / 2, -Math.PI / 2, 0], restRot: [0, 0, 0] }],
     hasShield: false,
+    headMeshes: [],
     gesture: '2H_Ranged_Shoot',
     attackAnim: '2H_Ranged_Shoot',
     attackTimeScale: 1.5,
@@ -65,6 +70,7 @@ export const CLASSES: ClassDef[] = [
       { bone: 'handslot.l', model: 'models/adv_dagger.glb' },
     ],
     hasShield: false,
+    headMeshes: ['Mask'],
     gesture: 'Dualwield_Melee_Attack_Chop',
     attackAnim: 'Dualwield_Melee_Attack_Chop',
     attackTimeScale: 1.4,
@@ -78,9 +84,24 @@ export const CLASSES: ClassDef[] = [
     model: 'models/barbarian.glb',
     weapons: [{ bone: 'handslot.r', model: 'models/adv_axe_2handed.glb' }],
     hasShield: false,
+    headMeshes: ['BearHat'],
     gesture: '2H_Melee_Attack_Chop',
     attackAnim: '2H_Melee_Attack_Chop',
     attackTimeScale: 0.95,
+  },
+  {
+    id: 'ballestero',
+    nombre: 'Ballestero',
+    rol: 'Tirador',
+    armaNombres: ['Ballesta de caza', 'Ballesta de guerra', 'Ballesta del Ojo Muerto'],
+    desc: 'Nunca lleva prisa. La ballesta tarda en recargar, pero lo que alcanza no se levanta.',
+    model: 'models/rogue.glb',
+    weapons: [{ bone: 'handslot.r', model: 'models/crossbow.glb', rot: [0, Math.PI / 2, 0] }],
+    hasShield: false,
+    headMeshes: [],
+    gesture: 'Ranged_1H_Aiming',
+    attackAnim: 'Ranged_1H_Shoot',
+    attackTimeScale: 1.1,
   },
   {
     id: 'fumarel',
@@ -91,6 +112,7 @@ export const CLASSES: ClassDef[] = [
     model: 'models/mage.glb',
     weapons: [{ bone: 'handslot.r', model: 'models/adv_staff.glb' }],
     hasShield: false,
+    headMeshes: ['Hat'],
     gesture: 'Spellcast_Raise',
     attackAnim: 'Spellcast_Shoot',
     attackTimeScale: 1.5,

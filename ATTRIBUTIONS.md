@@ -11,6 +11,10 @@
 
 Modelos tomados de la librería curada de World of ClaudeCraft, cuyos orígenes son:
 
+- Animaciones añadidas (voltereta en cuatro direcciones, beber, recoger, giro
+  a dos manos, disparo y recarga de ballesta, levantarse) — **KayKit Character
+  Animations 1.1** y **KayKit Adventurers 2.0 FREE**, por Kay Lousberg. CC0 1.0.
+- `crossbow.glb`, `bolt.glb`, `rogue.glb` — KayKit Adventurers 2.0 FREE. CC0 1.0.
 - `knight.glb`, `ranger.glb`, `rogue_hooded.glb`, `mage.glb`, `barbarian.glb`
   y las armas (`adv_sword_1handed.glb`, `adv_dagger.glb`, `adv_staff.glb`,
   `adv_axe_2handed.glb`, `bow.glb`, `shield_round.glb`) — KayKit Character

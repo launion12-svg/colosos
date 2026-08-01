@@ -16,9 +16,9 @@ const move = (over: Partial<MoveInput> = {}): MoveInput => ({ ...IDLE_INPUT, ...
 describe('catálogo de clases', () => {
   const files = new Set(readdirSync(MODELS_DIR));
 
-  it('hay 5 clases con ids únicos', () => {
-    expect(CLASSES.length).toBe(5);
-    expect(new Set(CLASSES.map((c) => c.id)).size).toBe(5);
+  it('hay 6 clases con ids únicos', () => {
+    expect(CLASSES.length).toBe(6);
+    expect(new Set(CLASSES.map((c) => c.id)).size).toBe(6);
   });
 
   it('cada clase tiene su habilidad y su ficha de arma', () => {

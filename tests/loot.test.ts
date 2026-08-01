@@ -2,6 +2,7 @@
 // La primera está garantizada; nunca caen duplicados de lo que llevas.
 
 import { describe, expect, it } from 'vitest';
+import { CLASS_ABILITY } from '../src/sim/abilities';
 import { Sim } from '../src/sim/sim';
 import { IDLE_INPUT, type MoveInput, type SimEvent } from '../src/sim/types';
 
@@ -37,7 +38,8 @@ describe('loot de armas', () => {
     expect(drop).toBeDefined();
     if (drop?.type === 'lootDropped') {
       expect(drop.setId).not.toBe('medula');
-      expect(['vigia', 'cordelero', 'fumarel']).toContain(drop.setId);
+      // cualquier arma del catálogo menos la que ya llevas
+      expect(Object.keys(CLASS_ABILITY)).toContain(drop.setId);
     }
   });
 
