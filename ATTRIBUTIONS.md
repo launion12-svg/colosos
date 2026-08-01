@@ -11,8 +11,11 @@
 
 Modelos tomados de la librería curada de World of ClaudeCraft, cuyos orígenes son:
 
-- `knight.glb` — KayKit Character Pack: Adventurers + KayKit Character
-  Animations, por Kay Lousberg (kaylousberg.itch.io). CC0 1.0.
+- `knight.glb`, `ranger.glb`, `rogue_hooded.glb`, `mage.glb`, `barbarian.glb`
+  y las armas (`adv_sword_1handed.glb`, `adv_dagger.glb`, `adv_staff.glb`,
+  `adv_axe_2handed.glb`, `bow.glb`, `shield_round.glb`) — KayKit Character
+  Pack: Adventurers + KayKit Character Animations, por Kay Lousberg
+  (kaylousberg.itch.io). CC0 1.0.
 - `wolf_basic.glb` — Quaternius (quaternius.com). CC0 1.0.
 - `duskwisp.glb` — derivado procedural del pipeline de WoC sobre kits CC0.
 - `oak_1.glb`, `oak_3.glb`, `pine_1.glb`, `bush.glb` — Quaternius Stylized

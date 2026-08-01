@@ -19,6 +19,10 @@ export type AbilityKind = 'heavy' | 'dash' | 'projectile';
 // pasivas, mañana). La identidad ya no es una clase: es lo que empuñas.
 export interface WeaponSetInfo {
   hasShield: boolean;
+  // el peso del arma en el básico: el hacha pega el doble de fuerte pero
+  // tarda lo suyo en volver arriba; las dagas, al revés. Por defecto, 1.
+  basicDmgMult?: number;
+  basicCooldownMult?: number;
   // si existe, el ataque básico es un proyectil (arco, bastón) en vez de melee.
   // `kind` es la firma visual del disparo: la capa de render la lee para saber
   // si dibuja una flecha o una brasa de niebla.
@@ -28,7 +32,8 @@ export interface WeaponSetInfo {
 export const WEAPON_SET_INFO: Record<string, WeaponSetInfo> = {
   medula: { hasShield: true },
   vigia: { hasShield: false, rangedBasic: { speed: 28, life: 0.6, radius: 0.65, kind: 'flecha' } },
-  cordelero: { hasShield: false },
+  cordelero: { hasShield: false, basicDmgMult: 0.78, basicCooldownMult: 0.62 },
+  hachero: { hasShield: false, basicDmgMult: 1.5, basicCooldownMult: 1.5 },
   // el bastón no se blande: destila brasas de niebla. Más lentas y más gordas
   // que una flecha (perdonan la puntería), pero de alcance algo más corto.
   fumarel: { hasShield: false, rangedBasic: { speed: 21, life: 0.7, radius: 0.85, kind: 'brasa' } },
@@ -118,6 +123,18 @@ export const CLASS_ABILITY: Record<string, AbilityDef> = {
     damageMult: 1.4,
     dashSpeed: 26,
     dashTime: 0.2,
+  },
+  hachero: {
+    id: 'tajo_circular',
+    nombre: 'Tajo Circular',
+    desc: 'Gira sobre ti mismo con el hacha por delante: daño ×2,4 a TODO lo que te rodea, mires donde mires, y los manda lejos. Para cuando te cierran el corro.',
+    kind: 'heavy',
+    cooldown: 7,
+    windup: 0.35,
+    damageMult: 2.4,
+    range: 3.5,
+    arc: Math.PI * 2, // el círculo entero: no hay espalda que valga
+    knockback: 3,
   },
   fumarel: {
     id: 'chispa_niebla',

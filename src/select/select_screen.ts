@@ -143,7 +143,11 @@ export class SelectScreen {
 
   async load(): Promise<void> {
     const labelBox = this.ui.querySelector('#select-labels') as HTMLElement;
-    const arcX = [-3.6, -1.25, 1.25, 3.6];
+    // el corro se reparte solo: al meter una clase nueva, todos se abren un
+    // poco en vez de pisarse (antes eran cuatro posiciones a mano)
+    const n = CLASSES.length;
+    const sep = n <= 4 ? 2.35 : 2.05;
+    const arcX = Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * sep);
     for (let i = 0; i < CLASSES.length; i++) {
       const def = CLASSES[i];
       const gltf = await loadGLB(def.model);
@@ -158,7 +162,10 @@ export class SelectScreen {
         view.attach(w.bone, obj);
       }
       const baseX = arcX[i];
-      const baseZ = -0.4 - Math.abs(baseX) * 0.22; // arco suave
+      // arco suave; y si hay uno justo en el centro, un paso atrás para que la
+      // hoguera no le tape las piernas
+      const enLaHoguera = Math.abs(baseX) < 0.01;
+      const baseZ = -0.4 - Math.abs(baseX) * 0.22 - (enLaHoguera ? 0.75 : 0);
       view.group.position.set(baseX, 0, baseZ);
       view.group.rotation.y = Math.atan2(CAM_POS.x - baseX, CAM_POS.z - baseZ);
       view.play('Idle');

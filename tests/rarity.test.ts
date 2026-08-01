@@ -2,7 +2,7 @@
 // tienes, y jamás cae un downgrade.
 
 import { describe, expect, it } from 'vitest';
-import { RARITY_MULT, RARITY_NAMES } from '../src/sim/abilities';
+import { CLASS_ABILITY, RARITY_MULT, RARITY_NAMES } from '../src/sim/abilities';
 import { Sim } from '../src/sim/sim';
 import { IDLE_INPUT, type MoveInput, type SimEvent } from '../src/sim/types';
 
@@ -58,8 +58,10 @@ describe('rarezas de armas', () => {
 
   it('con todo en calidad máxima, no caen más armas', () => {
     const s = new Sim(13, { setA: 'medula', setB: 'fumarel' });
-    s.player.ownedWeapons = ['medula', 'fumarel', 'vigia', 'cordelero'];
-    s.player.weaponRarity = { medula: 2, fumarel: 2, vigia: 2, cordelero: 2 };
+    // todas las armas del juego, no una lista a mano: al añadir una clase
+    // nueva este test seguía pasando en falso
+    s.player.ownedWeapons = Object.keys(CLASS_ABILITY);
+    s.player.weaponRarity = Object.fromEntries(s.player.ownedWeapons.map((id) => [id, 2]));
     const mob = s.mobs()[0];
     const events: SimEvent[] = [];
     for (let t = 0; t < 400 && mob.alive; t++) {

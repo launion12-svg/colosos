@@ -582,12 +582,26 @@ export class GameRenderer {
           // el básico ya usa Spellcast_Shoot: la habilidad alza el bastón para
           // que se distinga de un vistazo cuál de los dos estás lanzando
           chispa_niebla: { anim: 'Spellcast_Raise', ts: 2.4 },
+          tajo_circular: { anim: '2H_Melee_Attack_Chop', ts: 0.85 },
         };
         const a = anims[ev.ability];
         if (v && a) v.play(a.anim, { once: true, fade: 0.06, timeScale: a.ts });
         if (ev.ability === 'golpe_vertebra') {
           this.shake.request(0.3);
           this.rig.punch(4);
+        }
+        if (ev.ability === 'tajo_circular') {
+          // el giro no está en el rig: lo cuenta el anillo de polvo a ras de suelo
+          const p = this.sim.player;
+          for (let i = 0; i < 26; i++) {
+            const ang = (i / 26) * Math.PI * 2;
+            this.particles.burst(
+              this.tmp.set(p.x + Math.sin(ang) * 2.6, p.y + 0.25, p.z + Math.cos(ang) * 2.6),
+              { count: 2, color: 0xe4d3b0, speed: 2.2, life: 0.45, gravity: 3, size: 0.16 },
+            );
+          }
+          this.shake.request(0.42);
+          this.rig.punch(5);
         }
         this.audio.play('ability');
         break;

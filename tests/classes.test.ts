@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { CLASSES, classById, weaponName } from '../src/game/classes';
+import { CLASS_ABILITY, WEAPON_SET_INFO } from '../src/sim/abilities';
 import { Sim } from '../src/sim/sim';
 import { IDLE_INPUT, type MoveInput, type SimEvent } from '../src/sim/types';
 
@@ -15,9 +16,17 @@ const move = (over: Partial<MoveInput> = {}): MoveInput => ({ ...IDLE_INPUT, ...
 describe('catálogo de clases', () => {
   const files = new Set(readdirSync(MODELS_DIR));
 
-  it('hay 4 clases con ids únicos', () => {
-    expect(CLASSES.length).toBe(4);
-    expect(new Set(CLASSES.map((c) => c.id)).size).toBe(4);
+  it('hay 5 clases con ids únicos', () => {
+    expect(CLASSES.length).toBe(5);
+    expect(new Set(CLASSES.map((c) => c.id)).size).toBe(5);
+  });
+
+  it('cada clase tiene su habilidad y su ficha de arma', () => {
+    for (const c of CLASSES) {
+      expect(CLASS_ABILITY[c.id], `falta la habilidad de ${c.id}`).toBeDefined();
+      expect(WEAPON_SET_INFO[c.id], `falta la ficha de arma de ${c.id}`).toBeDefined();
+      expect(WEAPON_SET_INFO[c.id].hasShield).toBe(c.hasShield);
+    }
   });
 
   for (const c of CLASSES) {

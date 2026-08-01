@@ -11,6 +11,7 @@ import { iconFactory } from './icon_factory';
 export class InventoryWindow {
   private el: HTMLElement;
   private visible = false;
+  private dragging: string | null = null;
 
   constructor(
     root: HTMLElement,
@@ -52,7 +53,9 @@ export class InventoryWindow {
     if (!def) return '';
     const rarity = this.sim.player.weaponRarity[setId] ?? 0;
     const nombre = weaponName(setId, rarity);
-    return `<div class="inv-cell ornate ornate-slot ${cls} r${rarity}" data-id="${setId}" data-model="${def.weapons[0].model}" data-rarity="${rarity}" title="${nombre} — ${def.rol} · Calidad: ${RARITY_NAMES[rarity]}">
+    const arrastrable = cls.includes('clickable');
+    const pista = arrastrable ? ' · arrástrala a una mano o haz click' : '';
+    return `<div class="inv-cell ornate ornate-slot ${cls} r${rarity}" data-id="${setId}" data-model="${def.weapons[0].model}" data-rarity="${rarity}" ${arrastrable ? 'draggable="true"' : ''} title="${nombre} — ${def.rol} · Calidad: ${RARITY_NAMES[rarity]}${pista}">
         <img alt="${nombre}" draggable="false" />
       </div>`;
   }
@@ -71,13 +74,13 @@ export class InventoryWindow {
         <div class="inv-silhouette"></div>
         <div class="doll-slot locked" style="grid-area: head" title="Casco — llegará con las armaduras"><span>⛑</span></div>
         <div class="doll-slot locked" style="grid-area: amulet" title="Amuleto — llegará con las armaduras"><span>◈</span></div>
-        <div class="doll-slot ${activeA ? 'in-hand' : ''}" style="grid-area: main" title="Mano principal">
+        <div class="doll-slot drop-slot ${activeA ? 'in-hand' : ''}" data-slot="A" style="grid-area: main" title="Arma principal — suelta aquí un arma del zurrón">
           <div class="doll-slot-label">${activeA ? 'EN MANO' : 'Guardada'}</div>
           ${this.weaponCellHtml(p.setA, 'equipped')}
           <div class="doll-wname r${p.weaponRarity[p.setA] ?? 0}">${weaponName(p.setA, p.weaponRarity[p.setA] ?? 0)}</div>
         </div>
         <div class="doll-slot locked" style="grid-area: chest" title="Peto — llegará con las armaduras"><span>🛡</span></div>
-        <div class="doll-slot ${!activeA ? 'in-hand' : ''}" style="grid-area: off" title="Mano secundaria (X para cambiar)">
+        <div class="doll-slot drop-slot ${!activeA ? 'in-hand' : ''}" data-slot="B" style="grid-area: off" title="Arma secundaria (X para cambiar) — suelta aquí un arma del zurrón">
           <div class="doll-slot-label">${!activeA ? 'EN MANO' : 'Guardada'}</div>
           ${p.setB ? this.weaponCellHtml(p.setB, 'equipped') : '<div class="inv-cell empty" title="Cae de las criaturas"></div>'}
           <div class="doll-wname r${p.weaponRarity[p.setB] ?? 0}">${p.setB ? weaponName(p.setB, p.weaponRarity[p.setB] ?? 0) : 'vacío'}</div>
@@ -90,7 +93,7 @@ export class InventoryWindow {
         ${bag.map((id) => this.weaponCellHtml(id, 'clickable')).join('')}
         ${Array.from({ length: Math.max(0, bagCells - bag.length) }, () => '<div class="inv-cell empty"></div>').join('')}
       </div>
-      <div class="inv-hint">Click en un arma del zurrón: se equipa en el hueco guardado · X en combate: cambiar de mano · I / Esc: cerrar</div>
+      <div class="inv-hint">Arrastra un arma sobre cualquiera de las dos manos para equiparla ahí · Click: va al hueco guardado · X en combate: cambiar de mano · I / Esc: cerrar</div>
     `;
 
     // el retrato de la silueta: el héroe activo renderizado
@@ -110,6 +113,40 @@ export class InventoryWindow {
         const id = cell.dataset.id;
         if (id && this.sim.equipStored(id)) this.render();
       });
+      cell.addEventListener('dragstart', (e) => {
+        const id = cell.dataset.id ?? '';
+        (e as DragEvent).dataTransfer?.setData('text/plain', id);
+        this.dragging = id;
+        this.el.classList.add('dragging');
+      });
+      cell.addEventListener('dragend', () => {
+        this.dragging = null;
+        this.el.classList.remove('dragging');
+      });
     }
+
+    // las dos manos son destino de arrastre: así se cambia también la principal
+    for (const slot of this.el.querySelectorAll<HTMLElement>('.drop-slot')) {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('drop-hover');
+      });
+      slot.addEventListener('dragleave', () => slot.classList.remove('drop-hover'));
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('drop-hover');
+        const id = (e as DragEvent).dataTransfer?.getData('text/plain') || this.dragging;
+        const destino = slot.dataset.slot === 'A' ? 'A' : 'B';
+        if (id && this.sim.equipInto(id, destino)) this.render();
+        else this.rechazo(slot);
+      });
+    }
+  }
+
+  // sacudida corta: el hueco dice que no sin necesidad de texto
+  private rechazo(el: HTMLElement): void {
+    el.classList.remove('drop-nope');
+    void el.offsetWidth; // reinicia la animación
+    el.classList.add('drop-nope');
   }
 }

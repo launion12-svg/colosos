@@ -2,7 +2,7 @@
 // lleno deja el arma en el suelo en vez de tragársela.
 
 import { describe, expect, it } from 'vitest';
-import { BAG_SLOTS, rarityWeightsForLevel } from '../src/sim/abilities';
+import { BAG_SLOTS, CLASS_ABILITY, rarityWeightsForLevel } from '../src/sim/abilities';
 import { BESTIARY } from '../src/sim/bestiary';
 import { Sim } from '../src/sim/sim';
 import { IDLE_INPUT, type MoveInput, type SimEvent } from '../src/sim/types';
@@ -63,8 +63,8 @@ describe('niveles de criatura y calidad del botín', () => {
 
   it('una criatura de nivel 1 nunca puede mejorarte un arma que ya tienes', () => {
     const s = new Sim(41, { setA: 'medula', setB: 'fumarel' });
-    s.player.ownedWeapons = ['medula', 'fumarel', 'vigia', 'cordelero'];
-    s.player.weaponRarity = { medula: 0, fumarel: 0, vigia: 0, cordelero: 0 };
+    s.player.ownedWeapons = Object.keys(CLASS_ABILITY);
+    s.player.weaponRarity = Object.fromEntries(s.player.ownedWeapons.map((id) => [id, 0]));
     const events = farm(s, 'arana');
     // todo lo tiene en común y la araña solo da común: no hay nada que soltar
     expect(events.some((e) => e.type === 'lootDropped')).toBe(false);
@@ -72,8 +72,8 @@ describe('niveles de criatura y calidad del botín', () => {
 
   it('el jefe sí puede soltar mejoras de calidad alta', () => {
     const s = new Sim(41, { setA: 'medula', setB: 'fumarel' });
-    s.player.ownedWeapons = ['medula', 'fumarel', 'vigia', 'cordelero'];
-    s.player.weaponRarity = { medula: 0, fumarel: 0, vigia: 0, cordelero: 0 };
+    s.player.ownedWeapons = Object.keys(CLASS_ABILITY);
+    s.player.weaponRarity = Object.fromEntries(s.player.ownedWeapons.map((id) => [id, 0]));
     const events = farm(s, 'gigante', 10);
     const drops = events.filter(
       (e): e is Extract<SimEvent, { type: 'lootDropped' }> => e.type === 'lootDropped',

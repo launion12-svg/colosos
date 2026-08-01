@@ -79,6 +79,34 @@ describe('inventario y zurrón', () => {
     expect(s.player.setA).toBe('cordelero'); // el guardado cambió
   });
 
+  it('equipInto sí cambia el arma de la mano, y cuesta el enfriamiento del swap', () => {
+    const s = new Sim(11, { setA: 'medula', setB: 'fumarel' });
+    s.player.ownedWeapons.push('hachero');
+    expect(s.activeSetId).toBe('medula'); // la mano es el hueco A
+    const ok = s.equipInto('hachero', 'A');
+    expect(ok).toBe(true);
+    expect(s.player.setA).toBe('hachero');
+    expect(s.activeSetId).toBe('hachero'); // cambio de identidad en el sitio
+    expect(s.player.hasShield).toBe(false); // el hacha no trae escudo
+    expect(s.player.swapCooldown).toBeGreaterThan(0);
+    // y la espada desplazada vuelve al zurrón (que es lo que no está en mano)
+    expect(s.player.ownedWeapons).toContain('medula');
+  });
+
+  it('no se cambia el arma de la mano dos veces seguidas ni a media estocada', () => {
+    const s = new Sim(11, { setA: 'medula', setB: 'fumarel' });
+    s.player.ownedWeapons.push('hachero', 'vigia');
+    expect(s.equipInto('hachero', 'A')).toBe(true);
+    expect(s.equipInto('vigia', 'A')).toBe(false); // enfriamiento del cambio
+    s.player.swapCooldown = 0;
+    s.player.attackWindup = 0.15; // golpe en curso
+    expect(s.equipInto('vigia', 'A')).toBe(false);
+    s.player.attackWindup = 0;
+    expect(s.equipInto('vigia', 'A')).toBe(true);
+    // el hueco guardado, en cambio, se toca cuando quieras
+    expect(s.equipInto('hachero', 'B')).toBe(true);
+  });
+
   it('validaciones: ni armas ajenas ni ya equipadas', () => {
     const s = new Sim(11, { setA: 'medula', setB: 'fumarel' });
     expect(s.equipStored('vigia')).toBe(false); // no la tienes

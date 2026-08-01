@@ -168,8 +168,23 @@
     .inv-cell.empty { background: rgba(14, 12, 14, 0.85); border-color: #33291f; }
     .inv-cell.r1 { border-color: #5cb0ff; box-shadow: 0 0 8px rgba(92,176,255,0.35) inset; }
     .inv-cell.r2 { border-color: #ffd35c; box-shadow: 0 0 10px rgba(255,211,92,0.45) inset; }
-    .inv-cell.clickable { cursor: pointer; }
+    .inv-cell.clickable { cursor: grab; }
     .inv-cell.clickable:hover { border-color: #ffd35c; box-shadow: 0 0 10px rgba(216,180,92,0.4); }
+    /* arrastrar un arma al muñeco: mientras se arrastra, las manos se ofrecen */
+    #inventory.dragging .drop-slot {
+      border-color: #ffd35c; border-style: dashed;
+      box-shadow: 0 0 14px rgba(255,211,92,0.25) inset;
+    }
+    .drop-slot.drop-hover {
+      border-color: #fff0b8; background: rgba(255, 211, 92, 0.12);
+      box-shadow: 0 0 18px rgba(255,211,92,0.45) inset;
+    }
+    .drop-slot.drop-nope { animation: nope 0.28s ease; }
+    @keyframes nope {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
     .inv-grid {
       display: grid; grid-template-columns: repeat(5, 62px); gap: 7px;
       justify-content: center; margin-top: 12px; padding: 10px;

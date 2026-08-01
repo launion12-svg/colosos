@@ -391,8 +391,10 @@ export class Sim {
       if (p.attackWindup > 0) {
         p.attackWindup -= DT;
         if (p.attackWindup <= 0 && p.alive) {
-          const ranged = WEAPON_SET_INFO[this.activeSetId]?.rangedBasic;
-          const rMult = this.activeRarityMult;
+          const info = WEAPON_SET_INFO[this.activeSetId];
+          const ranged = info?.rangedBasic;
+          // rareza del arma × peso del arma: un hacha rara pega como un coloso
+          const rMult = this.activeRarityMult * (info?.basicDmgMult ?? 1);
           if (ranged) {
             this.spawnProjectile({
               x: p.x,
@@ -429,7 +431,8 @@ export class Sim {
           p.yaw = abilityYaw(p, this.mobs()); // el disparo sale hacia el objetivo
         }
         p.attackWindup = ATTACK_WINDUP;
-        p.attackCooldown = ATTACK_COOLDOWN;
+        p.attackCooldown =
+          ATTACK_COOLDOWN * (WEAPON_SET_INFO[this.activeSetId]?.basicCooldownMult ?? 1);
         this.emit({ type: 'swung', id: p.id });
       }
     }
@@ -586,15 +589,37 @@ export class Sim {
   // Equipa un arma del zurrón en el hueco GUARDADO (nunca te cambia la mano).
   // Lo llama la ventana de inventario; valida propiedad y duplicados.
   // Nota multijugador (F4): esto deberá viajar por el flujo de comandos.
-  equipStored(setId: string): boolean {
+  // Equipa un arma del zurrón en el hueco que se pida. Si el hueco es el que
+  // llevas en la mano, cambias de identidad en el sitio: mismo precio que el
+  // cambio con X (enfriamiento incluido), y nunca en mitad de un golpe.
+  equipInto(setId: string, slot: 'A' | 'B'): boolean {
     const p = this.player;
     if (!p.alive) return false;
     if (!p.ownedWeapons.includes(setId)) return false;
     if (setId === p.setA || setId === p.setB) return false;
-    if (p.activeSetB) p.setA = setId;
+    const enMano = slot === 'A' ? !p.activeSetB : p.activeSetB;
+    if (
+      enMano &&
+      (p.swapCooldown > 0 || p.attackWindup > 0 || p.abilityWindup > 0 || p.dashTime > 0)
+    ) {
+      return false;
+    }
+    if (slot === 'A') p.setA = setId;
     else p.setB = setId;
     this.emit({ type: 'weaponEquipped', setId });
+    if (enMano) {
+      // el cuerpo y el escudo son del arma, no del personaje
+      p.hasShield = WEAPON_SET_INFO[setId]?.hasShield ?? false;
+      p.blocking = false;
+      p.swapCooldown = SWAP_COOLDOWN;
+      this.emit({ type: 'weaponSwapped', id: p.id, setId });
+    }
     return true;
+  }
+
+  // Atajo clásico: al hueco guardado, sin tocar lo que llevas en la mano.
+  equipStored(setId: string): boolean {
+    return this.equipInto(setId, this.player.activeSetB ? 'A' : 'B');
   }
 
   // Huella serializada del estado para los tests de paridad/determinismo.
