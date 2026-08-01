@@ -74,13 +74,13 @@ export const CLASSES: ClassDef[] = [
     nombre: 'Fumarel',
     rol: 'Mago',
     armaNombres: ['Vara astillada', 'Bastón de niebla', 'Bastón del Mar Tóxico'],
-    desc: 'Destila la niebla del mar tóxico en poder. El bastón pega; los hechizos, en la Fase 2.',
+    desc: 'Destila la niebla del mar tóxico en poder. El bastón no golpea: lanza brasas de niebla a distancia.',
     model: 'models/mage.glb',
     weapons: [{ bone: 'handslot.r', model: 'models/adv_staff.glb' }],
     hasShield: false,
     gesture: 'Spellcast_Raise',
-    attackAnim: '2H_Melee_Attack_Chop',
-    attackTimeScale: 1.25,
+    attackAnim: 'Spellcast_Shoot',
+    attackTimeScale: 1.5,
   },
 ];
 

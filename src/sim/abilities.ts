@@ -19,15 +19,19 @@ export type AbilityKind = 'heavy' | 'dash' | 'projectile';
 // pasivas, mañana). La identidad ya no es una clase: es lo que empuñas.
 export interface WeaponSetInfo {
   hasShield: boolean;
-  // si existe, el ataque básico es un proyectil (arquera) en vez de melee
-  rangedBasic?: { speed: number; life: number; radius: number };
+  // si existe, el ataque básico es un proyectil (arco, bastón) en vez de melee.
+  // `kind` es la firma visual del disparo: la capa de render la lee para saber
+  // si dibuja una flecha o una brasa de niebla.
+  rangedBasic?: { speed: number; life: number; radius: number; kind: string };
 }
 
 export const WEAPON_SET_INFO: Record<string, WeaponSetInfo> = {
   medula: { hasShield: true },
-  vigia: { hasShield: false, rangedBasic: { speed: 28, life: 0.6, radius: 0.65 } },
+  vigia: { hasShield: false, rangedBasic: { speed: 28, life: 0.6, radius: 0.65, kind: 'flecha' } },
   cordelero: { hasShield: false },
-  fumarel: { hasShield: false },
+  // el bastón no se blande: destila brasas de niebla. Más lentas y más gordas
+  // que una flecha (perdonan la puntería), pero de alcance algo más corto.
+  fumarel: { hasShield: false, rangedBasic: { speed: 21, life: 0.7, radius: 0.85, kind: 'brasa' } },
 };
 
 export const SWAP_COOLDOWN = 0.8; // el cambio de arma no es un parpadeo

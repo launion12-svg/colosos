@@ -385,8 +385,8 @@ export class Sim {
         this.emit({ type: 'abilityUsed', id: p.id, ability: this.ability.id });
       }
 
-      // ataque: anuncio + resolución con anticipación. Con arco, el básico
-      // es una flecha (proyectil); con lo demás, el barrido melee.
+      // ataque: anuncio + resolución con anticipación. Con arco o bastón el
+      // básico sale disparado (proyectil); con lo demás, el barrido melee.
       p.attackCooldown = Math.max(0, p.attackCooldown - DT);
       if (p.attackWindup > 0) {
         p.attackWindup -= DT;
@@ -404,7 +404,7 @@ export class Sim {
               radius: ranged.radius,
               damageMin: Math.floor(playerDamageMin(p.level) * rMult),
               damageMax: Math.floor(playerDamageMax(p.level) * rMult),
-              kind: 'flecha',
+              kind: ranged.kind,
             });
           } else {
             resolveSwing(
@@ -426,7 +426,7 @@ export class Sim {
         p.dashTime <= 0
       ) {
         if (WEAPON_SET_INFO[this.activeSetId]?.rangedBasic) {
-          p.yaw = abilityYaw(p, this.mobs()); // la flecha sale hacia el objetivo
+          p.yaw = abilityYaw(p, this.mobs()); // el disparo sale hacia el objetivo
         }
         p.attackWindup = ATTACK_WINDUP;
         p.attackCooldown = ATTACK_COOLDOWN;

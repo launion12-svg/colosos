@@ -99,6 +99,32 @@ describe('habilidades de clase', () => {
     expect(wolf.hp).toBeLessThan(hpBefore);
   });
 
+  it('Fumarel: el básico es una brasa que se lanza, no un bastonazo', () => {
+    const s = new Sim(5, { setA: 'fumarel' });
+    const mob = lonelyTarget(s);
+    placeAt(s, mob, 0, 7); // fuera del alcance melee: si pegara, no llegaría
+    const hpBefore = mob.hp;
+    const events: SimEvent[] = [];
+    for (let t = 0; t < 30; t++) events.push(...s.tick(move({ attack: t === 0 })));
+    const orb = events.find((e) => e.type === 'projectileSpawned');
+    expect(orb).toBeDefined();
+    if (orb?.type === 'projectileSpawned') expect(orb.kind).toBe('brasa');
+    expect(mob.hp).toBeLessThan(hpBefore);
+  });
+
+  it('con bastón el básico nunca resuelve melee, ni pegado al enemigo', () => {
+    const s = new Sim(5, { setA: 'fumarel' });
+    const mob = lonelyTarget(s);
+    placeAt(s, mob, 0, 1.2); // a bocajarro: el melee sí alcanzaría
+    const events: SimEvent[] = [];
+    for (let t = 0; t < 6; t++) events.push(...s.tick(move({ attack: t === 0 })));
+    // el daño llega por el proyectil (attackerId -1), jamás por el swing del jugador
+    expect(events.some((e) => e.type === 'projectileSpawned')).toBe(true);
+    expect(
+      events.some((e) => e.type === 'hitLanded' && e.attackerId === s.player.id),
+    ).toBe(false);
+  });
+
   it('matar con proyectil concede XP (punto único de concesión)', () => {
     const s = new Sim(5, { classId: 'fumarel' });
     const wolf = lonelyTarget(s);

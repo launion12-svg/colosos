@@ -27,6 +27,27 @@ import { BESTIARY } from '../sim/bestiary';
 import { RARITY_NAMES } from '../sim/abilities';
 
 const RARITY_COLORS = [0xf0f0e8, 0x5cb0ff, 0xffd35c]; // común, mágica, rara
+
+// Firma visual de cada proyectil, por su `kind`. Una flecha se estira en el
+// sentido del vuelo; una brasa de niebla es un orbe con halo y estela.
+interface ProjStyle {
+  radius: number;
+  color: number;
+  stretch?: boolean; // asta alargada (flechas)
+  halo?: number; // esfera exterior translúcida
+  trail?: number; // color de la estela en vuelo
+  burst: number; // partículas al reventar
+}
+
+const PROJ_STYLE: Record<string, ProjStyle> = {
+  flecha: { radius: 0.14, color: 0xd8dce8, stretch: true, burst: 8 },
+  disparo_certero: { radius: 0.15, color: 0xffe2a0, stretch: true, halo: 0xffc24d, burst: 12 },
+  brasa: { radius: 0.22, color: 0xe6d2ff, halo: 0x9a6bff, trail: 0xb98cff, burst: 14 },
+  chispa_niebla: { radius: 0.3, color: 0x7fe8e0, halo: 0x39c8bc, trail: 0x7fe8e0, burst: 20 },
+};
+
+const PROJ_FALLBACK: ProjStyle = { radius: 0.16, color: 0xd8dce8, stretch: true, burst: 8 };
+const projStyle = (kind: string): ProjStyle => PROJ_STYLE[kind] ?? PROJ_FALLBACK;
 import type { Hud } from '../ui/hud';
 
 interface Wisp {
@@ -550,7 +571,9 @@ export class GameRenderer {
           golpe_vertebra: { anim: '2H_Melee_Attack_Chop', ts: 1.15 },
           disparo_certero: { anim: '2H_Ranged_Shoot', ts: 1.5 },
           acometida: { anim: 'Dualwield_Melee_Attack_Chop', ts: 1.3 },
-          chispa_niebla: { anim: 'Spellcast_Shoot', ts: 1.3 },
+          // el básico ya usa Spellcast_Shoot: la habilidad alza el bastón para
+          // que se distinga de un vistazo cuál de los dos estás lanzando
+          chispa_niebla: { anim: 'Spellcast_Raise', ts: 2.4 },
         };
         const a = anims[ev.ability];
         if (v && a) v.play(a.anim, { once: true, fade: 0.06, timeScale: a.ts });
@@ -562,12 +585,26 @@ export class GameRenderer {
         break;
       }
       case 'projectileSpawned': {
-        const isMist = ev.kind === 'chispa_niebla';
+        const st = projStyle(ev.kind);
         const mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(isMist ? 0.3 : 0.14, 10, 8),
-          new THREE.MeshBasicMaterial({ color: isMist ? 0x7fe8e0 : 0xd8dce8 }),
+          new THREE.SphereGeometry(st.radius, 10, 8),
+          new THREE.MeshBasicMaterial({ color: st.color }),
         );
-        if (!isMist) mesh.scale.set(0.5, 0.5, 2.4); // daga: alargada en vuelo
+        if (st.stretch) mesh.scale.set(0.5, 0.5, 2.4); // asta: alargada en vuelo
+        if (st.halo !== undefined) {
+          // el halo hace que el orbe se lea como energía y no como una bola
+          const halo = new THREE.Mesh(
+            new THREE.SphereGeometry(st.radius * 1.9, 10, 8),
+            new THREE.MeshBasicMaterial({
+              color: st.halo,
+              transparent: true,
+              opacity: 0.32,
+              depthWrite: false,
+              blending: THREE.AdditiveBlending,
+            }),
+          );
+          mesh.add(halo);
+        }
         mesh.position.set(ev.x, ev.y, ev.z);
         mesh.rotation.y = Math.atan2(ev.vx, ev.vz);
         this.scene.add(mesh);
@@ -578,16 +615,22 @@ export class GameRenderer {
         const mesh = this.projMeshes.get(ev.pid);
         if (mesh) {
           this.scene.remove(mesh);
-          mesh.geometry.dispose();
-          (mesh.material as THREE.Material).dispose();
+          // el orbe puede llevar halo como hijo: se limpia todo el subárbol
+          mesh.traverse((o) => {
+            const m = o as THREE.Mesh;
+            if (!m.isMesh) return;
+            m.geometry.dispose();
+            (m.material as THREE.Material).dispose();
+          });
           this.projMeshes.delete(ev.pid);
         }
+        const st = projStyle(ev.kind);
         this.particles.burst(this.tmp.set(ev.x, ev.y, ev.z), {
-          count: ev.kind === 'chispa_niebla' ? 20 : 8,
-          color: ev.kind === 'chispa_niebla' ? 0x7fe8e0 : 0xc8ccd8,
+          count: st.burst,
+          color: st.trail ?? st.color,
           speed: 4.5,
           life: 0.3,
-          gravity: 6,
+          gravity: st.trail ? 2 : 6, // la magia se disipa, la flecha cae
           size: 0.12,
         });
         break;
@@ -726,10 +769,11 @@ export class GameRenderer {
       const mesh = this.projMeshes.get(pr.id);
       if (!mesh) continue;
       mesh.position.set(pr.px + (pr.x - pr.px) * alpha, pr.y, pr.pz + (pr.z - pr.pz) * alpha);
-      if (pr.kind === 'chispa_niebla' && Math.random() < 0.5) {
+      const trail = projStyle(pr.kind).trail;
+      if (trail !== undefined && Math.random() < 0.5) {
         this.particles.burst(mesh.position, {
           count: 1,
-          color: 0x7fe8e0,
+          color: trail,
           speed: 0.6,
           life: 0.35,
           gravity: -1,

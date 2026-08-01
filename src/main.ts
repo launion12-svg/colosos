@@ -130,7 +130,10 @@ async function boot(): Promise<void> {
       input.camPitch = pitch;
       if (dist !== undefined) input.camDist = dist;
     },
+    // devuelve los eventos generados: las capturas comprueban qué pasó, no
+    // solo cómo se ve
     tickN(n: number, inp?: Partial<import('./sim/types').MoveInput>) {
+      const all: import('./sim/types').SimEvent[] = [];
       for (let i = 0; i < n; i++) {
         const events = sim.tick({
           moveX: 0,
@@ -145,7 +148,9 @@ async function boot(): Promise<void> {
           ...inp,
         });
         for (const ev of events) renderer.onSimEvent(ev);
+        all.push(...events);
       }
+      return all;
     },
   };
   (window as unknown as Record<string, unknown>).__colosos = hooks;
