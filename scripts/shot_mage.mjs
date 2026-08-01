@@ -1,5 +1,10 @@
 // Verificación visual: el básico del mago ya no es un bastonazo — sale una
 // brasa de niebla volando. Captura el básico y la habilidad para compararlos.
+//
+// Truco aprendido a base de fotos en blanco: la cámara persigue al jugador con
+// lerp, así que tras un teletransporte hay que dejar correr frames (con
+// swiftshader cada uno tarda ~1 s de reloj) ANTES de disparar. Y el sim se
+// congela justo después del disparo, o el orbe se sale de la foto.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { stdio: 'ignore' });
@@ -17,53 +22,55 @@ await page.waitForTimeout(1500);
 const frames = (n) =>
   page.evaluate((c) => new Promise((r) => { let k = c; const s = () => (--k <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }), n);
 
-// --- básico: click izquierdo ---
-const info = await page.evaluate(() => {
-  const h = window.__colosos;
-  h.setTimeOfDay(0.45);
-  h.teleport(14, -82);
-  h.setCamera(Math.PI * 0.15, 0.3, 7.5);
-  h.tickN(10);
-  // el lobo, plantado a 10 m: así se ve la brasa cruzando el aire
-  const p = h.sim.player;
-  p.yaw = Math.PI * 0.15 + Math.PI; // de espaldas a la cámara: el disparo se aleja
-  const vivos = h.sim.mobs().filter((m) => m.alive);
-  for (const m of vivos) { m.x = p.x + 60; m.z = p.z + 60; } // despeja la manada
-  const mob = vivos[0];
-  mob.x = p.x + Math.sin(p.yaw) * 10;
-  mob.z = p.z + Math.cos(p.yaw) * 10;
-  const kinds = [];
-  const evs = h.tickN(4, { attack: true }) ?? [];
-  for (const e of evs) if (e.type === 'projectileSpawned') kinds.push(e.kind);
-  h.tickN(3);
-  h.setPaused(true); // congela el sim: si no, los frames lentos se comen el vuelo
-  return { kinds, enVuelo: h.sim.projectiles.map((q) => q.kind) };
-});
-await frames(4);
-await page.waitForTimeout(200);
-await page.screenshot({ path: 'shots/20_mago_basico.png', timeout: 120000 });
-console.log('básico ->', JSON.stringify(info));
-
-// --- habilidad: tecla 1 ---
+// coloca la escena y deja que la cámara alcance al jugador
 await page.evaluate(() => {
   const h = window.__colosos;
-  h.setPaused(false);
-  h.tickN(6);
+  h.setTimeOfDay(0.4);
+  h.teleport(14, -82);
+  h.setCamera(Math.PI * 0.15, 0.25, 7);
   const p = h.sim.player;
-  p.yaw = Math.PI * 0.15 + Math.PI;
-  const vivos = h.sim.mobs().filter((m) => m.alive);
-  for (const m of vivos) { m.x = p.x + 60; m.z = p.z + 60; }
-  const mob = vivos[0];
-  mob.x = p.x + Math.sin(p.yaw) * 10;
-  mob.z = p.z + Math.cos(p.yaw) * 10;
-  h.tickN(7, { ability: true });
-  h.tickN(3);
-  h.setPaused(true);
+  p.yaw = 0;
+  for (const m of h.sim.mobs()) { m.x = p.x + 70; m.z = p.z + 70; } // despeja la manada
 });
-await frames(4);
-await page.waitForTimeout(200);
-await page.screenshot({ path: 'shots/21_mago_habilidad.png', timeout: 120000 });
-console.log('shots: 20_mago_basico, 21_mago_habilidad');
+await frames(10); // la cámara se asienta detrás del mago
+
+const disparo = async (inp, ticks, file) => {
+  const info = await page.evaluate(
+    ({ inp, ticks }) => {
+      const h = window.__colosos;
+      const p = h.sim.player;
+      const mob = h.sim.mobs().find((m) => m.alive);
+      mob.x = p.x + Math.sin(p.yaw) * 13; // blanco lejano: se ve el vuelo
+      mob.z = p.z + Math.cos(p.yaw) * 13;
+      mob.hp = mob.maxHp;
+      const kinds = [];
+      for (const e of h.tickN(ticks, inp) ?? []) {
+        if (e.type === 'projectileSpawned') kinds.push(e.kind);
+      }
+      h.tickN(2);
+      h.setPaused(true);
+      const cam = h.renderer.rig?.camera;
+      const pr = h.sim.projectiles[0];
+      let px = null;
+      if (pr && cam) {
+        const v = new (Object.getPrototypeOf(cam.position).constructor)(pr.x, pr.y, pr.z);
+        v.project(cam);
+        px = [Math.round(((v.x + 1) / 2) * 1280), Math.round(((1 - v.y) / 2) * 720)];
+      }
+      return { kinds, enVuelo: h.sim.projectiles.map((q) => q.kind), px };
+    },
+    { inp, ticks },
+  );
+  await frames(3);
+  await page.screenshot({ path: `shots/${file}.png`, timeout: 120000 });
+  await page.evaluate(() => window.__colosos.setPaused(false));
+  console.log(file, '->', JSON.stringify(info));
+};
+
+await disparo({ attack: true }, 4, '20_mago_basico');
+await frames(2); // deja pasar el enfriamiento
+await disparo({ ability: true }, 7, '21_mago_habilidad');
+
 await browser.close();
 server.kill();
 process.exit(0);

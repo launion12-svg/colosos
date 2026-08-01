@@ -73,19 +73,22 @@ async function boot(): Promise<void> {
     requestAnimationFrame(frame);
     const realDt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    if (paused) return;
 
     // hitstop: escala tiempo de sim Y de animación
     const scale = renderer.hitstop.scale(realDt);
-    const dt = realDt * scale;
+    const dt = paused ? 0 : realDt * scale;
 
-    acc += dt;
-    while (acc >= DT) {
-      acc -= DT;
-      const events = sim.tick(input.sample());
-      for (const ev of events) {
-        renderer.onSimEvent(ev);
-        if (ev.type === 'lootPickedUp' || ev.type === 'weaponEquipped') inventory.refresh();
+    // en pausa el mundo se congela pero se sigue dibujando: es una foto fija,
+    // no una pantalla muerta (y las capturas automáticas dependen de ello)
+    if (!paused) {
+      acc += dt;
+      while (acc >= DT) {
+        acc -= DT;
+        const events = sim.tick(input.sample());
+        for (const ev of events) {
+          renderer.onSimEvent(ev);
+          if (ev.type === 'lootPickedUp' || ev.type === 'weaponEquipped') inventory.refresh();
+        }
       }
     }
 

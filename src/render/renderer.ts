@@ -35,6 +35,7 @@ interface ProjStyle {
   color: number;
   stretch?: boolean; // asta alargada (flechas)
   halo?: number; // esfera exterior translúcida
+  haloOpacity?: number; // por defecto 0.32
   trail?: number; // color de la estela en vuelo
   burst: number; // partículas al reventar
 }
@@ -42,7 +43,14 @@ interface ProjStyle {
 const PROJ_STYLE: Record<string, ProjStyle> = {
   flecha: { radius: 0.14, color: 0xd8dce8, stretch: true, burst: 8 },
   disparo_certero: { radius: 0.15, color: 0xffe2a0, stretch: true, halo: 0xffc24d, burst: 12 },
-  brasa: { radius: 0.22, color: 0xe6d2ff, halo: 0x9a6bff, trail: 0xb98cff, burst: 14 },
+  brasa: {
+    radius: 0.24,
+    color: 0xc08cff,
+    halo: 0x8a3cff,
+    haloOpacity: 0.5,
+    trail: 0xb98cff,
+    burst: 14,
+  },
   chispa_niebla: { radius: 0.3, color: 0x7fe8e0, halo: 0x39c8bc, trail: 0x7fe8e0, burst: 20 },
 };
 
@@ -598,7 +606,7 @@ export class GameRenderer {
             new THREE.MeshBasicMaterial({
               color: st.halo,
               transparent: true,
-              opacity: 0.32,
+              opacity: st.haloOpacity ?? 0.32,
               depthWrite: false,
               blending: THREE.AdditiveBlending,
             }),
