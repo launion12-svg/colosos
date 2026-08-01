@@ -52,7 +52,7 @@ export function updateMob(
   if (!m.alive) {
     if (m.aiState !== 'dead') {
       m.aiState = 'dead';
-      m.respawnTimer = MOB_RESPAWN_TIME;
+      m.respawnTimer = m.respawnTime || MOB_RESPAWN_TIME;
       m.attackWindup = 0;
       m.vx = 0;
       m.vz = 0;

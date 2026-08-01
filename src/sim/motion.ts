@@ -20,6 +20,7 @@ import {
   SPRINT_DRAIN,
   SPRINT_MULT,
   STAMINA_MAX,
+  SIT_STAMINA_MULT,
   STAMINA_REGEN,
   STAMINA_REGEN_DELAY,
   STEEP_SLIDE_SPEED,
@@ -52,7 +53,10 @@ export function stepPlayerMotion(
     if (p.stamina === 0) p.winded = true; // vaciada: toca jadear
   } else {
     p.staminaDelay = Math.max(0, p.staminaDelay - DT);
-    if (p.staminaDelay <= 0) p.stamina = Math.min(STAMINA_MAX, p.stamina + STAMINA_REGEN * DT);
+    if (p.staminaDelay <= 0) {
+      const ritmo = STAMINA_REGEN * (p.sitting ? SIT_STAMINA_MULT : 1);
+      p.stamina = Math.min(STAMINA_MAX, p.stamina + ritmo * DT);
+    }
   }
   if (p.winded && p.stamina >= WINDED_RECOVER) p.winded = false;
 

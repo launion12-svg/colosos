@@ -20,6 +20,7 @@ function scriptedInput(tick: number): MoveInput {
     sprint: phase >= 60 && phase < 90, // y el esprint con su energía
     swap: phase % 97 === 0, // y el cambio de set
     drink: phase % 53 === 0, // y beber poción
+    sit: phase % 71 === 0, // y sentarse a descansar
   };
 }
 

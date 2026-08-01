@@ -222,6 +222,7 @@ async function boot(): Promise<void> {
           sprint: false,
           swap: false,
           drink: false,
+          sit: false,
           ...inp,
         });
         for (const ev of events) renderer.onSimEvent(ev);

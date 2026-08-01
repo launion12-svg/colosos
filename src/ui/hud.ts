@@ -108,7 +108,7 @@ export class Hud {
       </button>
       <div id="toast" class="hidden"></div>
       <div id="fct-container"></div>
-      <div id="help">WASD moverte · Shift esprintar · Espacio saltar · Click izq / J atacar · 1 / 2: habilidades · Q: poción${blockHint} · T: talentos · M: sonido · Rueda: zoom · I: inventario · F: pantalla completa</div>
+      <div id="help">WASD moverte · Shift esprintar · Espacio saltar · Click izq / J atacar · 1 / 2: habilidades · Q: poción${blockHint} · C: descansar · T: talentos · M: sonido · Rueda: zoom · I: inventario · F: pantalla completa</div>
     `;
     this.playerHpFill = root.querySelector('#php-fill')!;
     this.playerHpText = root.querySelector('#php-text')!;

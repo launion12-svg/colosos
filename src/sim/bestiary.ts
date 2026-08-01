@@ -25,6 +25,7 @@ export interface MobTemplate {
   speed: number;
   aggro: number; // radio de detección
   xp: number;
+  respawn?: number; // segundos hasta volver (por defecto, MOB_RESPAWN_TIME)
   boss?: boolean;
   anims: MobAnims;
 }
@@ -211,6 +212,7 @@ export const BESTIARY: Record<string, MobTemplate> = {
     speed: 4.2,
     aggro: 15,
     xp: 220,
+    respawn: 150, // el portero no se repone a la carrera
     anims: {
       idle: 'Idle',
       walk: 'Move',
@@ -233,6 +235,7 @@ export const BESTIARY: Record<string, MobTemplate> = {
     speed: 4.2,
     aggro: 16,
     xp: 600,
+    respawn: 240,
     boss: true,
     anims: {
       idle: 'Idle',

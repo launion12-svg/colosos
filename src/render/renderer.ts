@@ -112,6 +112,7 @@ export class GameRenderer {
   private setDefs = new Map<string, ClassDef>();
   private activeDef: ClassDef;
   private initialSets: string[];
+  private sitStartedAt = -99; // cuándo empezó el gesto de sentarse
   private potionVisuals = new Map<number, THREE.Group>();
   private dropVisuals = new Map<number, { group: THREE.Group; weapon: THREE.Object3D }>();
 
@@ -581,6 +582,26 @@ export class GameRenderer {
         this.audio.play('loot_pickup');
         break;
       }
+      case 'sat': {
+        const v6 = this.views.get(ev.id);
+        this.sitStartedAt = this.elapsed;
+        if (ev.sitting) {
+          if (v6?.has('Sit_Floor_Down')) {
+            v6.play('Sit_Floor_Down', { once: true, fade: 0.15 });
+          }
+          this.hud.toast('Descansando · te curas más rápido (C para levantarte)', 2200);
+        } else if (v6) {
+          v6.play('Idle', { fade: 0.15 });
+        }
+        this.audio.play('swap');
+        break;
+      }
+      case 'regenTick': {
+        // la curación pasiva se ve, pero en pequeñito: nada de tapar la pelea
+        const p6 = this.sim.player;
+        this.damageNumbers.spawn(this.tmp.set(p6.x, p6.y + 2.1, p6.z), `+${ev.amount}`, 'heal');
+        break;
+      }
       case 'potionDrunk': {
         const p5 = this.sim.player;
         const v5 = this.views.get(p5.id);
@@ -855,6 +876,16 @@ export class GameRenderer {
     if (oneShots.includes(playing) && speed < 1 && e.grounded) return;
 
     if (e.kind === 'player') {
+      // sentado: manda sobre todo lo demás hasta que se levante. Primero el
+      // gesto de sentarse (una vez) y, cuando termina, el respirar sentado.
+      if (e.sitting) {
+        const sentado = v.has('Sit_Floor_Idle') ? 'Sit_Floor_Idle' : 'Idle';
+        const bajando = v.playing() === 'Sit_Floor_Down' && v.has('Sit_Floor_Down');
+        if (!bajando || this.elapsed - this.sitStartedAt > 1.1) {
+          v.play(sentado, { fade: 0.25 });
+        }
+        return;
+      }
       const oneShotsPlayer = [this.activeDef.attackAnim, 'Hit_A'];
       if (oneShotsPlayer.includes(v.playing()) && speed < 1 && e.grounded) return;
       if (e.blocking) {

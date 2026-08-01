@@ -48,7 +48,12 @@ import {
   MAX_LEVEL,
   WEAPON_MAX_LEVEL,
   MIST_DEATH_MARGIN,
+  MOB_RESPAWN_TIME,
   MOB_XP_REWARD,
+  OUT_OF_COMBAT_TIME,
+  REGEN_PER_SEC,
+  SIT_REGEN_MULT,
+  SIT_STAMINA_MULT,
   PLAYER_MAX_HP,
   PLAYER_RESPAWN_TIME,
   POTION_COOLDOWN,
@@ -140,6 +145,10 @@ function baseEntity(id: number, kind: EntityKind, name: string): Entity {
     weaponXp: {},
     potions: 0,
     potionCooldown: 0,
+    combatTimer: 0,
+    regenAccum: 0,
+    sitting: false,
+    respawnTime: 0,
     stamina: STAMINA_MAX,
     staminaDelay: 0,
     winded: false,
@@ -166,6 +175,7 @@ export class Sim {
   private nextProjectileId = 1;
   private nextDropId = 1;
   private dashHitIds = new Set<number>();
+  private regenTick = 0; // acumulador del pulso de regeneración (1 s)
   private bagFullNotice = 0; // antirrepetición del aviso mientras pisas el arma
 
   // La habilidad y el escudo son SIEMPRE los del set activo
@@ -242,6 +252,7 @@ export class Sim {
         m.dmgMax = t.dmgMax;
         m.aggroRadius = t.aggro;
         m.xpReward = t.xp;
+        m.respawnTime = t.respawn ?? MOB_RESPAWN_TIME;
         m.level = t.level; // su nivel decide la calidad de lo que suelta
         m.homeX = cx;
         m.homeZ = cz;
@@ -385,6 +396,51 @@ export class Sim {
       if (p.y < MIST_LEVEL - MIST_DEATH_MARGIN) {
         this.emit({ type: 'fellInMist', id: p.id });
         this.killPlayer();
+      }
+
+      // Sentarse (C): descansar acelera la recuperación. Se levanta solo en
+      // cuanto te mueves, saltas, atacas o te pegan: nunca te deja vendido.
+      if (input.sit && p.grounded && p.alive && p.combatTimer <= 0 && !p.sitting) {
+        p.sitting = true;
+        this.emit({ type: 'sat', id: p.id, sitting: true });
+      } else if (
+        p.sitting &&
+        (input.sit ||
+          input.attack ||
+          input.jump ||
+          input.ability ||
+          input.ability2 ||
+          input.moveX !== 0 ||
+          input.moveZ !== 0 ||
+          p.combatTimer > 0 ||
+          !p.alive)
+      ) {
+        p.sitting = false;
+        this.emit({ type: 'sat', id: p.id, sitting: false });
+      }
+
+      // Regeneración fuera de combate: pasados unos segundos sin dar ni
+      // recibir, el lomo te cura. Sentado, más deprisa. Es lo que hace que
+      // farmear no sea volver al campamento cada dos peleas.
+      p.combatTimer = Math.max(0, p.combatTimer - DT);
+      if (p.combatTimer <= 0 && p.hp < p.maxHp && p.alive) {
+        const ritmo = REGEN_PER_SEC * (p.sitting ? SIT_REGEN_MULT : 1);
+        p.regenAccum += p.maxHp * ritmo * DT;
+        this.regenTick += DT;
+        // se cura cada segundo de golpe, no veinte veces por segundo: así el
+        // número flotante se lee y no ametralla la pantalla
+        if (this.regenTick >= 1) {
+          this.regenTick = 0;
+          const cura = Math.min(Math.floor(p.regenAccum), p.maxHp - p.hp);
+          p.regenAccum -= Math.floor(p.regenAccum);
+          if (cura > 0) {
+            p.hp += cura;
+            this.emit({ type: 'regenTick', id: p.id, amount: cura });
+          }
+        }
+      } else {
+        p.regenAccum = 0;
+        this.regenTick = 0;
       }
 
       // pociones: se recogen pisándolas y se beben con Q. Curan un pellizco
@@ -561,6 +617,24 @@ export class Sim {
       if (e.kind !== 'mob') continue;
       this.stepStatus(e); // sangrado/veneno/quemadura y freno, antes de decidir
       updateMob(this.rng, e, p, this.seed, this.emit);
+    }
+
+    // ¿Sigues en combate? Un único sitio que lo decide: cualquier golpe que
+    // te toque o que repartas reinicia el reloj. El bloqueo también cuenta.
+    for (const ev of this.events) {
+      const enCombate =
+        (ev.type === 'hitLanded' && (ev.targetId === p.id || ev.attackerId === p.id)) ||
+        (ev.type === 'blockedHit' && ev.targetId === p.id) ||
+        ev.type === 'dotDamage' ||
+        (ev.type === 'aggroed' && p.alive);
+      if (enCombate) {
+        p.combatTimer = OUT_OF_COMBAT_TIME;
+        if (p.sitting) {
+          p.sitting = false;
+          this.emit({ type: 'sat', id: p.id, sitting: false });
+        }
+        break;
+      }
     }
 
     // XP: un único punto de concesión — cuenta los mobs muertos este tick

@@ -80,8 +80,15 @@ export const MOB_DAMAGE_MAX = 10;
 export const MOB_SPEED = 5.4;
 export const MOB_PATROL_SPEED_MULT = 0.42;
 export const MOB_EVADE_SPEED_MULT = 1.35;
-export const MOB_RESPAWN_TIME = 12;
+export const MOB_RESPAWN_TIME = 45; // el lomo tarda en volver a poblarse
+export const BOSS_RESPAWN_TIME = 240; // al jefe se le respeta el luto
 export const MOB_XP_REWARD = 15;
+
+// --- Fuera de combate: el lomo también cura ---
+export const OUT_OF_COMBAT_TIME = 6; // segundos sin dar ni recibir para regenerar
+export const REGEN_PER_SEC = 0.05; // del máximo de vida, por segundo (20 s a tope)
+export const SIT_REGEN_MULT = 2.5; // sentado se recupera mucho antes
+export const SIT_STAMINA_MULT = 2; // y el aire vuelve al doble de rápido
 
 // --- Pociones (el único consumible: curan un pellizco gordo y tienen freno) ---
 export const POTION_MAX = 5;
@@ -177,6 +184,10 @@ export interface Entity {
   weaponXp: Record<string, number>;
   potions: number;
   potionCooldown: number;
+  combatTimer: number; // >0: sigues en combate, no hay regeneración
+  regenAccum: number; // vida fraccionada pendiente de sumar
+  sitting: boolean;
+  respawnTime: number; // lo que tarda ESTA criatura en volver
   stamina: number;
   staminaDelay: number;
   winded: boolean; // vació la barra: no esprinta hasta recuperar el mínimo
@@ -197,6 +208,7 @@ export interface MoveInput {
   sprint: boolean; // mantenido: esprintar (Shift)
   swap: boolean; // flanco: cambiar de set de arma (tecla X)
   drink: boolean; // flanco: beber poción (tecla Q)
+  sit: boolean; // flanco: sentarse a descansar (tecla C)
 }
 
 export const IDLE_INPUT: MoveInput = {
@@ -211,6 +223,7 @@ export const IDLE_INPUT: MoveInput = {
   sprint: false,
   swap: false,
   drink: false,
+  sit: false,
 };
 
 // Hechos ocurridos, en pasado: el render/HUD/audio los consumen para el juice.
@@ -244,6 +257,8 @@ export type SimEvent =
   | { type: 'potionDropped'; dropId: number; x: number; y: number; z: number }
   | { type: 'potionPickedUp'; dropId: number; total: number; lleno: boolean }
   | { type: 'potionDrunk'; amount: number; quedan: number }
+  | { type: 'sat'; id: number; sitting: boolean }
+  | { type: 'regenTick'; id: number; amount: number }
   | { type: 'weaponLeveledUp'; setId: string; level: number }
   | { type: 'jumped'; id: number }
   | { type: 'landed'; id: number; fallSpeed: number }
