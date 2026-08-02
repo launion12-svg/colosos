@@ -5,13 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { CLASSES } from '../src/game/classes';
 import { Sim } from '../src/sim/sim';
-import {
-  HELMET_ARMOR,
-  HELMET_HP,
-  IDLE_INPUT,
-  playerMaxHp,
-  type MoveInput,
-} from '../src/sim/types';
+import { HELMET_ARMOR, HELMET_HP, IDLE_INPUT, playerMaxHp, type MoveInput } from '../src/sim/types';
 
 const move = (over: Partial<MoveInput> = {}): MoveInput => ({ ...IDLE_INPUT, ...over });
 
@@ -62,10 +56,14 @@ describe('casco', () => {
     expect(s.toggleHelmet()).toBe(false);
   });
 
+  // OJO: con 8 bichos y un 18% de caída, sacar cero pasa una de cada cinco
+  // veces. Este test se cayó solo el día que un cambio de terreno movió el
+  // flujo del RNG, sin que el casco tuviera nada roto. Se vacía el bestiario
+  // entero: con ~40 bajas, sacar cero es una entre cinco mil.
   it('las criaturas lo sueltan de verdad', () => {
     const s = new Sim(33, { setA: 'hachero' });
     let caidos = 0;
-    for (const mob of s.mobs().slice(0, 8)) {
+    for (const mob of s.mobs()) {
       for (let t = 0; t < 600 && mob.alive; t++) {
         s.player.x = mob.x;
         s.player.z = mob.z;

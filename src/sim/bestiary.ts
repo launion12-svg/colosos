@@ -261,11 +261,15 @@ export const CAMPS: CampDef[] = [
   // La cola (z muy negativa) es la guardería; la cabeza (z positiva), el final.
   // Cada tramo sube un peldaño: si te saltas campamentos, el siguiente te come.
   { template: 'arana', x: 16, z: -102, count: 3 },
-  { template: 'cangrejo', x: -14, z: -95, count: 3 },
-  { template: 'jabali', x: -18, z: -88, count: 2 },
-  { template: 'lobo', x: 14, z: -78, count: 3 },
-  { template: 'cangrejo', x: 18, z: -64, count: 3 },
-  { template: 'corredor', x: -16, z: -52, count: 2 },
+  { template: 'cangrejo', x: -20, z: -98, count: 3 },
+  // Estos cuatro rodean el Baluarte Roto sin meterse dentro. En el recinto no
+  // se pone a nadie hasta que los bichos sepan buscar la puerta en vez de
+  // empotrarse contra la muralla: eso es pathfinding, y es el siguiente paso
+  // de verdad para el modo mazmorra.
+  { template: 'jabali', x: -28, z: -92, count: 2 },
+  { template: 'lobo', x: 36, z: -84, count: 3 },
+  { template: 'cangrejo', x: -38, z: -58, count: 3 },
+  { template: 'corredor', x: -30, z: -48, count: 2 },
   { template: 'lobo', x: -18, z: -40, count: 3 },
   { template: 'corredor', x: 12, z: -26, count: 3 },
   { template: 'goblin', x: -14, z: -10, count: 3 },

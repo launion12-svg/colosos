@@ -23,6 +23,11 @@ Modelos tomados de la librería curada de World of ClaudeCraft, cuyos orígenes 
 - `nature.glb` (17 piezas: árboles, matorral, hierba y rocas) — **KayKit Forest
   Nature Pack 1.0 FREE**, por Kay Lousberg. CC0 1.0. Empaquetadas en un único
   GLB con textura compartida.
+- `dungeon.glb` (33 piezas modulares: muros, losas, escaleras, pilares y
+  atrezo) — **KayKit Dungeon Pack Remastered 1.0**, por Kay Lousberg. CC0 1.0.
+  Tomadas del repositorio oficial
+  https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0 y
+  empaquetadas en un único GLB con la textura de gradiente compartida.
 - `wolf_basic.glb` — Quaternius (quaternius.com). CC0 1.0.
 - `duskwisp.glb` — derivado procedural del pipeline de WoC sobre kits CC0.
 - `oak_1.glb`, `oak_3.glb`, `pine_1.glb`, `bush.glb` — Quaternius Stylized

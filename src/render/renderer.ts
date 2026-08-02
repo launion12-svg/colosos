@@ -4,7 +4,8 @@
 
 import * as THREE from 'three';
 import type { Sim } from '../sim/sim';
-import { MIST_LEVEL, generateDecorations } from '../sim/terrain';
+import { MIST_LEVEL, generateDecorations, plazaHeight } from '../sim/terrain';
+import { ruina, type Placed } from '../sim/structures';
 import type { Entity, SimEvent } from '../sim/types';
 import { HARD_LANDING_SPEED } from '../sim/types';
 import { CameraRig } from './camera_rig';
@@ -43,10 +44,28 @@ interface ProjStyle {
 
 const PROJ_STYLE: Record<string, ProjStyle> = {
   flecha: { radius: 0.14, color: 0xd8dce8, stretch: true, burst: 8 },
-  disparo_certero: { radius: 0.15, color: 0xffe2a0, stretch: true, halo: 0xffc24d, burst: 12 },
+  disparo_certero: {
+    radius: 0.15,
+    color: 0xffe2a0,
+    stretch: true,
+    halo: 0xffc24d,
+    burst: 12,
+  },
   virote: { radius: 0.13, color: 0xc8ccd8, stretch: true, burst: 10 },
-  saeta_perforante: { radius: 0.16, color: 0xdfe6f2, stretch: true, halo: 0x9fb8d8, burst: 16 },
-  andanada_virotes: { radius: 0.3, color: 0xe8e2c8, stretch: true, halo: 0xc8a86a, burst: 24 },
+  saeta_perforante: {
+    radius: 0.16,
+    color: 0xdfe6f2,
+    stretch: true,
+    halo: 0x9fb8d8,
+    burst: 16,
+  },
+  andanada_virotes: {
+    radius: 0.3,
+    color: 0xe8e2c8,
+    stretch: true,
+    halo: 0xc8a86a,
+    burst: 24,
+  },
   brasa: {
     radius: 0.24,
     color: 0xc08cff,
@@ -55,7 +74,13 @@ const PROJ_STYLE: Record<string, ProjStyle> = {
     trail: 0xb98cff,
     burst: 14,
   },
-  chispa_niebla: { radius: 0.3, color: 0x7fe8e0, halo: 0x39c8bc, trail: 0x7fe8e0, burst: 20 },
+  chispa_niebla: {
+    radius: 0.3,
+    color: 0x7fe8e0,
+    halo: 0x39c8bc,
+    trail: 0x7fe8e0,
+    burst: 20,
+  },
   // las de la tecla 2: más grandes, se leen desde lejos
   lluvia_astillas: {
     radius: 0.34,
@@ -75,7 +100,12 @@ const PROJ_STYLE: Record<string, ProjStyle> = {
   },
 };
 
-const PROJ_FALLBACK: ProjStyle = { radius: 0.16, color: 0xd8dce8, stretch: true, burst: 8 };
+const PROJ_FALLBACK: ProjStyle = {
+  radius: 0.16,
+  color: 0xd8dce8,
+  stretch: true,
+  burst: 8,
+};
 const projStyle = (kind: string): ProjStyle => PROJ_STYLE[kind] ?? PROJ_FALLBACK;
 import type { Hud } from '../ui/hud';
 
@@ -256,6 +286,57 @@ export class GameRenderer {
       const nombre = m.name || m.parent?.name || '';
       if (!piezas.has(nombre)) piezas.set(nombre, m);
     });
+
+    // Arquitectura modular: mismo truco de instanciado que la vegetación, pero
+    // aquí las posiciones no son ruido sino una planta de edificio.
+    const kit = await loadGLB('models/dungeon.glb');
+    kit.scene.updateMatrixWorld(true);
+    const modulos = new Map<string, THREE.Mesh>();
+    kit.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || modulos.has(m.name)) return;
+      // OJO: meshopt cuantiza los vértices y compensa con una escala y una
+      // traslación EN EL NODO. Instanciar la geometría cruda tira esa
+      // compensación: la primera versión de esto salió con las murallas a
+      // escala de maqueta. Se hornea la matriz del nodo en una copia de la
+      // geometría y a partir de ahí la retícula de 4 m vuelve a ser de 4 m.
+      const geo = m.geometry.clone();
+      geo.applyMatrix4(m.matrixWorld);
+      const horneada = new THREE.Mesh(geo, m.material);
+      horneada.name = m.name;
+      modulos.set(m.name, horneada);
+    });
+    const cotaPlaza = plazaHeight(this.sim.seed);
+    const porPieza = new Map<string, Placed[]>();
+    for (const p of ruina().piezas) {
+      const lista = porPieza.get(p.pieza) ?? [];
+      lista.push(p);
+      porPieza.set(p.pieza, lista);
+    }
+    const mm = new THREE.Matrix4();
+    const mq = new THREE.Quaternion();
+    const mp = new THREE.Vector3();
+    const uno = new THREE.Vector3(1, 1, 1);
+    const ejeY = new THREE.Vector3(0, 1, 0);
+    for (const [tipo, lista] of porPieza) {
+      const fuente = modulos.get(tipo);
+      if (!fuente) {
+        console.warn(`falta la pieza "${tipo}" en dungeon.glb`);
+        continue;
+      }
+      const inst = new THREE.InstancedMesh(fuente.geometry, fuente.material, lista.length);
+      inst.name = `kit_${tipo}`;
+      inst.castShadow = true;
+      inst.receiveShadow = true;
+      lista.forEach((p, i) => {
+        mp.set(p.x, cotaPlaza + p.y, p.z);
+        mq.setFromAxisAngle(ejeY, p.rot);
+        inst.setMatrixAt(i, mm.compose(mp, mq, uno));
+      });
+      inst.instanceMatrix.needsUpdate = true;
+      inst.frustumCulled = false;
+      this.scene.add(inst);
+    }
 
     const decos = generateDecorations(this.sim.seed);
     const porTipo = new Map<string, typeof decos>();
@@ -525,9 +606,17 @@ export class GameRenderer {
       case 'dotDamage': {
         // el estado repica en pequeño: se ve que sigue ardiendo sin tapar el HUD
         const pos = this.tmp.set(ev.x, ev.y, ev.z);
-        const color = ev.kind === 'quemadura' ? 0xff7a2a : ev.kind === 'veneno' ? 0x9be04a : 0xd44040;
+        const color =
+          ev.kind === 'quemadura' ? 0xff7a2a : ev.kind === 'veneno' ? 0x9be04a : 0xd44040;
         this.damageNumbers.spawn(pos, String(ev.amount), 'dot');
-        this.particles.burst(pos, { count: 4, color, speed: 1.6, life: 0.4, gravity: -1, size: 0.1 });
+        this.particles.burst(pos, {
+          count: 4,
+          color,
+          speed: 1.6,
+          life: 0.4,
+          gravity: -1,
+          size: 0.1,
+        });
         if (ev.killed) this.audio.play('hit_hard');
         break;
       }
@@ -898,7 +987,14 @@ export class GameRenderer {
             const ang = p3.yaw + (i / 21 - 0.5) * Math.PI * 1.1;
             this.particles.burst(
               this.tmp.set(p3.x + Math.sin(ang) * 3.6, p3.y + 0.25, p3.z + Math.cos(ang) * 3.6),
-              { count: 3, color: 0xe4d3b0, speed: 3.4, life: 0.6, gravity: 3.4, size: 0.2 },
+              {
+                count: 3,
+                color: 0xe4d3b0,
+                speed: 3.4,
+                life: 0.6,
+                gravity: 3.4,
+                size: 0.2,
+              },
             );
           }
           this.shake.request(0.75);
@@ -922,7 +1018,14 @@ export class GameRenderer {
             const ang = (i / 26) * Math.PI * 2;
             this.particles.burst(
               this.tmp.set(p.x + Math.sin(ang) * 2.6, p.y + 0.25, p.z + Math.cos(ang) * 2.6),
-              { count: 2, color: 0xe4d3b0, speed: 2.2, life: 0.45, gravity: 3, size: 0.16 },
+              {
+                count: 2,
+                color: 0xe4d3b0,
+                speed: 2.2,
+                life: 0.45,
+                gravity: 3,
+                size: 0.16,
+              },
             );
           }
           this.shake.request(0.42);
@@ -1032,12 +1135,7 @@ export class GameRenderer {
   // está sonando, el mixer la respeta hasta que crossfadeamos).
   private updateLocomotion(e: Entity, v: CharacterView): void {
     if (!e.alive) return; // la muerte se queda clavada
-    const oneShots = [
-      '1H_Melee_Attack_Slice_Diagonal',
-      'Attack',
-      'Hit_A',
-      'Idle_HitReact_Left',
-    ];
+    const oneShots = ['1H_Melee_Attack_Slice_Diagonal', 'Attack', 'Hit_A', 'Idle_HitReact_Left'];
     // deja terminar los one-shot cortos: los interrumpe solo el movimiento
     const speed = Math.hypot(e.vx, e.vz);
     const playing = v.playing();
@@ -1104,7 +1202,10 @@ export class GameRenderer {
       // deja terminar el mordisco/reacción propios de la criatura
       if ([t.anims.attack, t.anims.hit].includes(v.playing()) && speed < 1) return;
       if (speed > e.moveSpeed * 0.75)
-        v.play(t.anims.run, { fade: 0.12, timeScale: t.anims.runTimeScale ?? 1 });
+        v.play(t.anims.run, {
+          fade: 0.12,
+          timeScale: t.anims.runTimeScale ?? 1,
+        });
       else if (speed > 0.3) v.play(t.anims.walk, { fade: 0.15 });
       else if (e.aiState === 'attack' && t.anims.alert) v.play(t.anims.alert, { fade: 0.2 });
       else v.play(t.anims.idle, { fade: 0.2 });

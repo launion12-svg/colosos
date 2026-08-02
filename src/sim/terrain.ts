@@ -4,6 +4,7 @@
 // toquen el suelo que se ve. (Patrón heredado de WoC world.ts.)
 
 import { Rng, fbm2 } from './rng';
+import { PLINTO, RUINA_DENTRO, RUINA_FUERA, RUINA_X, RUINA_Z, distRuina } from './structures';
 
 export const COLOSSUS_LENGTH = 380; // eje Z: cola (-) a cabeza (+)
 export const COLOSSUS_WIDTH = 116; // eje X
@@ -132,15 +133,38 @@ function voronoi(x: number, z: number, seed: number): Voronoi {
   };
 }
 
-// Altura del terreno. Pura y determinista: misma (x,z,seed) -> misma altura.
-// Plana dentro de cada placa, con una pared corta en la frontera.
-export function terrainHeight(x: number, z: number, seed: number): number {
+// Altura del lomo desnudo, antes de que nadie construya encima.
+function lomoHeight(x: number, z: number, seed: number): number {
   const v = voronoi(x, z, seed);
   if (v.borde <= 0) return v.alto;
   // solo se baja hacia la vecina MÁS BAJA: así el canto es un escalón hacia
   // fuera y no un valle entre dos placas
   const destino = Math.min(v.alto, v.vecina);
   return v.alto + (destino - v.alto) * smoothstep(0, 1, v.borde) * 0.5;
+}
+
+// La cota de la explanada de la ruina, por semilla. Se calcula una vez: es un
+// número por partida y terrainHeight se llama cientos de miles de veces.
+const cotaPlaza = new Map<number, number>();
+export function plazaHeight(seed: number): number {
+  let v = cotaPlaza.get(seed);
+  if (v === undefined) {
+    v = lomoHeight(RUINA_X, RUINA_Z, seed) + PLINTO;
+    cotaPlaza.set(seed, v);
+  }
+  return v;
+}
+
+// Altura del terreno. Pura y determinista: misma (x,z,seed) -> misma altura.
+// Plana dentro de cada placa, con una pared corta en la frontera, y con la
+// explanada de la ruina aplanada encima: las piezas modulares necesitan suelo
+// llano de verdad, no "casi llano".
+export function terrainHeight(x: number, z: number, seed: number): number {
+  const base = lomoHeight(x, z, seed);
+  const d = distRuina(x, z);
+  if (d >= RUINA_FUERA) return base;
+  const t = 1 - smoothstep(RUINA_DENTRO, RUINA_FUERA, d);
+  return base + (plazaHeight(seed) - base) * t;
 }
 
 // Cota de la placa que se pisa, sin la pared. La usa el render para saber
@@ -192,7 +216,12 @@ interface Tramo {
 }
 
 const TRAMOS: Tramo[] = [
-  { hasta: -90, arboles: ['seco_1', 'seco_2', 'pino_2'], matas: ['mata_3'], densidad: 0.45 },
+  {
+    hasta: -90,
+    arboles: ['seco_1', 'seco_2', 'pino_2'],
+    matas: ['mata_3'],
+    densidad: 0.45,
+  },
   {
     hasta: -20,
     arboles: ['arbol_1', 'arbol_2', 'arbol_3', 'pino_1'],
@@ -205,7 +234,12 @@ const TRAMOS: Tramo[] = [
     matas: ['mata_1', 'mata_2'],
     densidad: 0.8,
   },
-  { hasta: 999, arboles: ['seco_1', 'seco_2'], matas: ['mata_3'], densidad: 0.4 },
+  {
+    hasta: 999,
+    arboles: ['seco_1', 'seco_2'],
+    matas: ['mata_3'],
+    densidad: 0.4,
+  },
 ];
 
 const ROCAS = ['roca_1', 'roca_2', 'roca_3', 'roca_4', 'roca_5'];
@@ -225,13 +259,21 @@ export function generateDecorations(seed: number): Decoration[] {
   const halfL = COLOSSUS_LENGTH / 2;
   const halfW = COLOSSUS_WIDTH / 2;
 
-  const sitio = (): { x: number; z: number; y: number; steep: number; bone: number } => {
+  const sitio = (): {
+    x: number;
+    z: number;
+    y: number;
+    steep: number;
+    bone: number;
+  } => {
     const x = rng.range(-halfW, halfW);
     const z = rng.range(-halfL, halfL);
     return {
       x,
       z,
-      y: terrainHeight(x, z, seed),
+      // dentro del baluarte no crece nada: un pino atravesando la muralla
+      // delata el truco más que un mapa vacío
+      y: distRuina(x, z) < RUINA_DENTRO + 3 ? -999 : terrainHeight(x, z, seed),
       steep: terrainSteepness(x, z, seed),
       bone: vertebraFactor(x, z),
     };
@@ -315,7 +357,14 @@ export function generateDecorations(seed: number): Decoration[] {
     const x = side * rng.range(halfW * 0.55, halfW * 0.95);
     const z = rng.range(-halfL * 0.8, halfL * 0.8);
     const y = Math.max(terrainHeight(x, z, seed) + 2.5, MIST_LEVEL + 4);
-    out.push({ type: 'wisp', x, y, z, scale: rng.range(0.8, 1.3), rot: rng.range(0, Math.PI * 2) });
+    out.push({
+      type: 'wisp',
+      x,
+      y,
+      z,
+      scale: rng.range(0.8, 1.3),
+      rot: rng.range(0, Math.PI * 2),
+    });
   }
   return out;
 }

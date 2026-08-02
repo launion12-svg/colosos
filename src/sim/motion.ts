@@ -30,6 +30,10 @@ import {
   type SimEvent,
 } from './types';
 import { terrainDownhill, terrainHeight, terrainSteepness } from './terrain';
+import { apartarDeMuros } from './structures';
+
+// Radio del cuerpo para chocar con la arquitectura.
+const BODY_RADIUS = 0.45;
 
 export function stepPlayerMotion(
   p: Entity,
@@ -45,8 +49,7 @@ export function stepPlayerMotion(
   const wants = wishLen > 1e-6;
 
   // --- Energía: esprint, jadeo y regeneración ---
-  p.sprinting =
-    inp.sprint && wants && p.grounded && !p.blocking && p.stamina > 0 && !p.winded;
+  p.sprinting = inp.sprint && wants && p.grounded && !p.blocking && p.stamina > 0 && !p.winded;
   if (p.sprinting) {
     p.stamina = Math.max(0, p.stamina - SPRINT_DRAIN * DT);
     p.staminaDelay = STAMINA_REGEN_DELAY;
@@ -148,6 +151,16 @@ export function stepPlayerMotion(
 
   p.x += p.vx * DT;
   p.z += p.vz * DT;
+  // La arquitectura es sólida: los muros del baluarte apartan al que empuja.
+  // Sin esto las piezas modulares son un fondo pintado y se atraviesan.
+  const libre = apartarDeMuros(p.x, p.z, BODY_RADIUS);
+  if (libre.x !== p.x || libre.z !== p.z) {
+    // matar la velocidad contra la que se choca, o el personaje vibra pegado
+    if (libre.x !== p.x) p.vx = 0;
+    if (libre.z !== p.z) p.vz = 0;
+    p.x = libre.x;
+    p.z = libre.z;
+  }
   const ground = terrainHeight(p.x, p.z, seed);
 
   if (p.grounded) {

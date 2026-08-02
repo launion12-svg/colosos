@@ -78,10 +78,12 @@ describe('pociones', () => {
     expect(s.player.hp).toBe(5);
   });
 
+  // Mismo cuento que en casco.test.ts: con 8 bichos esto era una tirada de
+  // dados disfrazada de test. Se caza el lomo entero.
   it('los bichos las sueltan: cazando un rato acabas con reservas', () => {
     const s = new Sim(9, { setA: 'hachero' });
     let caidas = 0;
-    for (const mob of s.mobs().slice(0, 8)) {
+    for (const mob of s.mobs()) {
       for (let t = 0; t < 600 && mob.alive; t++) {
         s.player.x = mob.x;
         s.player.z = mob.z;
