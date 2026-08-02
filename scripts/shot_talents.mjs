@@ -3,7 +3,9 @@
 // pregunta de continuar partida al volver.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], {
+  stdio: 'ignore',
+});
 await new Promise((r) => setTimeout(r, 2500));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
@@ -13,7 +15,15 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 page.setDefaultTimeout(120000);
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 const frames = (n) =>
-  page.evaluate((c) => new Promise((r) => { let k = c; const s = () => (--k <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }), n);
+  page.evaluate(
+    (c) =>
+      new Promise((r) => {
+        let k = c;
+        const s = () => (--k <= 0 ? r() : requestAnimationFrame(s));
+        requestAnimationFrame(s);
+      }),
+    n,
+  );
 
 await page.goto('http://localhost:4173/?clase=hachero&clase2=fumarel');
 await page.waitForFunction(() => window.__colososReady === true, null, { timeout: 60000 });
@@ -33,7 +43,10 @@ await page.evaluate(() => {
   h.sim.player.weaponLevel.fumarel = 3;
   h.sim.player.talentPoints.fumarel = 2;
   h.sim.player.weaponXp.fumarel = 60;
-  for (const m of h.sim.mobs()) { m.x = h.sim.player.x + 70; m.z = h.sim.player.z + 70; }
+  for (const m of h.sim.mobs()) {
+    m.x = h.sim.player.x + 70;
+    m.z = h.sim.player.z + 70;
+  }
 });
 await frames(8);
 await page.keyboard.press('KeyT');
@@ -79,7 +92,10 @@ const golpe = await page.evaluate(() => {
   const p = h.sim.player;
   p.yaw = Math.PI * 0.15 + Math.PI;
   const vivos = h.sim.mobs().filter((m) => m.alive);
-  for (const m of vivos) { m.x = p.x + 70; m.z = p.z + 70; }
+  for (const m of vivos) {
+    m.x = p.x + 70;
+    m.z = p.z + 70;
+  }
   const mob = vivos[0];
   mob.x = p.x + Math.sin(p.yaw) * 3;
   mob.z = p.z + Math.cos(p.yaw) * 3;
@@ -130,11 +146,14 @@ const restaurado = await page.evaluate(() => {
 console.log('restaurado ->', JSON.stringify(restaurado));
 console.log('talentos ->', JSON.stringify(abierto));
 console.log('segunda habilidad ->', JSON.stringify(golpe));
-console.log('guardado ->', JSON.stringify({
-  nivel: guardado?.level,
-  talentos: guardado?.talents,
-  armas: guardado?.ownedWeapons,
-}));
+console.log(
+  'guardado ->',
+  JSON.stringify({
+    nivel: guardado?.level,
+    talentos: guardado?.talents,
+    armas: guardado?.ownedWeapons,
+  }),
+);
 console.log('shots: 27_talentos, 28_talentos_gastados, 29_segunda_habilidad, 30_continuar');
 await browser.close();
 server.kill();

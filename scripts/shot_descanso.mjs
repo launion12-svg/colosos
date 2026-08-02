@@ -2,7 +2,9 @@
 // y la vida sube sola con su número flotante.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], {
+  stdio: 'ignore',
+});
 await new Promise((r) => setTimeout(r, 2500));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
@@ -12,7 +14,15 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 page.setDefaultTimeout(180000);
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 const frames = (n) =>
-  page.evaluate((c) => new Promise((r) => { let k = c; const s = () => (--k <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }), n);
+  page.evaluate(
+    (c) =>
+      new Promise((r) => {
+        let k = c;
+        const s = () => (--k <= 0 ? r() : requestAnimationFrame(s));
+        requestAnimationFrame(s);
+      }),
+    n,
+  );
 
 await page.goto('http://localhost:4173/?clase=medula');
 await page.waitForFunction(() => window.__colososReady === true, null, { timeout: 90000 });
@@ -23,7 +33,12 @@ await page.evaluate(() => {
   h.teleport(14, -82);
   h.setCamera(Math.PI * 0.15, 0.22, 6);
   const p = h.sim.player;
-  for (const m of h.sim.mobs()) { m.x = p.x + 300; m.z = p.z + 300; m.homeX = m.x; m.homeZ = m.z; }
+  for (const m of h.sim.mobs()) {
+    m.x = p.x + 300;
+    m.z = p.z + 300;
+    m.homeX = m.x;
+    m.homeZ = m.z;
+  }
   p.hp = Math.floor(p.maxHp * 0.35);
 });
 await frames(10);
@@ -56,4 +71,6 @@ await frames(2);
 await page.screenshot({ path: 'shots/32_descanso.png', timeout: 180000 });
 console.log('descanso ->', JSON.stringify(res));
 console.log('animación tras el gesto ->', animFinal);
-await browser.close(); server.kill(); process.exit(0);
+await browser.close();
+server.kill();
+process.exit(0);

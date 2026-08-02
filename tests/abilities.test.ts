@@ -120,9 +120,7 @@ describe('habilidades de clase', () => {
     for (let t = 0; t < 6; t++) events.push(...s.tick(move({ attack: t === 0 })));
     // el daño llega por el proyectil (attackerId -1), jamás por el swing del jugador
     expect(events.some((e) => e.type === 'projectileSpawned')).toBe(true);
-    expect(
-      events.some((e) => e.type === 'hitLanded' && e.attackerId === s.player.id),
-    ).toBe(false);
+    expect(events.some((e) => e.type === 'hitLanded' && e.attackerId === s.player.id)).toBe(false);
   });
 
   it('matar con proyectil concede XP (punto único de concesión)', () => {

@@ -1,7 +1,9 @@
 // Verificación visual: la chispa de Fumarel en vuelo y la barra de acción.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], {
+  stdio: 'ignore',
+});
 await new Promise((r) => setTimeout(r, 2500));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
@@ -13,7 +15,16 @@ page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.goto('http://localhost:4173/?clase=fumarel');
 await page.waitForFunction(() => window.__colososReady === true, null, { timeout: 60000 });
 await page.waitForTimeout(1500);
-const frames = (n) => page.evaluate((c) => new Promise((r) => { let k = c; const s = () => (--k <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }), n);
+const frames = (n) =>
+  page.evaluate(
+    (c) =>
+      new Promise((r) => {
+        let k = c;
+        const s = () => (--k <= 0 ? r() : requestAnimationFrame(s));
+        requestAnimationFrame(s);
+      }),
+    n,
+  );
 await page.evaluate(() => {
   const h = window.__colosos;
   h.setTimeOfDay(0.45);

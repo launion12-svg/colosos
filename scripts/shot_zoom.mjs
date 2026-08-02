@@ -25,7 +25,12 @@ await page.evaluate(() => {
   h.tickN(2);
 });
 await page.evaluate(
-  () => new Promise((r) => { let n = 16; const step = () => (--n <= 0 ? r() : requestAnimationFrame(step)); requestAnimationFrame(step); }),
+  () =>
+    new Promise((r) => {
+      let n = 16;
+      const step = () => (--n <= 0 ? r() : requestAnimationFrame(step));
+      requestAnimationFrame(step);
+    }),
 );
 await page.evaluate(() => window.__colosos.setPaused(true));
 await page.waitForTimeout(200);

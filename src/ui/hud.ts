@@ -169,9 +169,7 @@ export class Hud {
         tooltip.classList.remove('hidden');
       });
       this.slot2El.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
-      this.slot2El.addEventListener('animationend', () =>
-        this.slot2El?.classList.remove('ready'),
-      );
+      this.slot2El.addEventListener('animationend', () => this.slot2El?.classList.remove('ready'));
     }
     if (slot && tooltip) {
       slot.addEventListener('mouseenter', () => this.showTooltip(this.ability1Info));

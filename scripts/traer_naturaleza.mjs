@@ -5,15 +5,26 @@ import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer';
 import { writeFileSync } from 'node:fs';
 const PACK = '/tmp/natura2/KayKit_Forest_Nature_Pack_1.0_FREE/Assets/gltf';
 const PIEZAS = [
-  ['Tree_1_A_Color1', 'arbol_1'], ['Tree_2_A_Color1', 'arbol_2'], ['Tree_2_C_Color1', 'arbol_3'],
-  ['Tree_3_A_Color1', 'pino_1'], ['Tree_4_A_Color1', 'pino_2'],
-  ['Tree_Bare_1_A_Color1', 'seco_1'], ['Tree_Bare_2_B_Color1', 'seco_2'],
-  ['Bush_1_A_Color1', 'mata_1'], ['Bush_2_A_Color1', 'mata_2'], ['Bush_4_A_Color1', 'mata_3'],
-  ['Grass_1_A_Color1', 'hierba_1'], ['Grass_2_B_Color1', 'hierba_2'],
-  ['Rock_1_A_Color1', 'roca_1'], ['Rock_1_E_Color1', 'roca_2'], ['Rock_2_C_Color1', 'roca_3'],
-  ['Rock_3_A_Color1', 'roca_4'], ['Rock_3_H_Color1', 'roca_5'],
+  ['Tree_1_A_Color1', 'arbol_1'],
+  ['Tree_2_A_Color1', 'arbol_2'],
+  ['Tree_2_C_Color1', 'arbol_3'],
+  ['Tree_3_A_Color1', 'pino_1'],
+  ['Tree_4_A_Color1', 'pino_2'],
+  ['Tree_Bare_1_A_Color1', 'seco_1'],
+  ['Tree_Bare_2_B_Color1', 'seco_2'],
+  ['Bush_1_A_Color1', 'mata_1'],
+  ['Bush_2_A_Color1', 'mata_2'],
+  ['Bush_4_A_Color1', 'mata_3'],
+  ['Grass_1_A_Color1', 'hierba_1'],
+  ['Grass_2_B_Color1', 'hierba_2'],
+  ['Rock_1_A_Color1', 'roca_1'],
+  ['Rock_1_E_Color1', 'roca_2'],
+  ['Rock_2_C_Color1', 'roca_3'],
+  ['Rock_3_A_Color1', 'roca_4'],
+  ['Rock_3_H_Color1', 'roca_5'],
 ];
-const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
+const io = new NodeIO()
+  .registerExtensions(ALL_EXTENSIONS)
   .registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder });
 // Las 17 piezas comparten la MISMA textura de paleta. Guardarlas por separado
 // significaba 17 copias del PNG (895 KB para unos pocos polígonos), así que se
@@ -42,4 +53,10 @@ console.log(
     ` · mallas ${root.listMeshes().length} · materiales ${root.listMaterials().length}` +
     ` · texturas ${root.listTextures().length}`,
 );
-console.log('nombres:', escena.listChildren().map((n) => n.getName()).join(', '));
+console.log(
+  'nombres:',
+  escena
+    .listChildren()
+    .map((n) => n.getName())
+    .join(', '),
+);

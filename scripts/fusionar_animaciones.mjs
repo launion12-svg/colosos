@@ -74,9 +74,19 @@ for (const destino of DESTINOS) {
   const antesBytes = readFileSync(destino).length;
   const doc = await io.read(destino);
   const animsPropias = new Set(doc.getRoot().listAnimations());
-  const yaTiene = new Set(doc.getRoot().listAnimations().map((a) => a.getName()));
+  const yaTiene = new Set(
+    doc
+      .getRoot()
+      .listAnimations()
+      .map((a) => a.getName()),
+  );
   // los huesos del destino, por nombre: es el puente entre los dos rigs
-  const huesos = new Map(doc.getRoot().listNodes().map((n) => [n.getName(), n]));
+  const huesos = new Map(
+    doc
+      .getRoot()
+      .listNodes()
+      .map((n) => [n.getName(), n]),
+  );
   // Foto de lo que ya era nuestro: todo lo que aparezca de más tras fusionar
   // (el maniquí del pack, sus mallas, su piel) se tira. Solo queremos el
   // movimiento, no el muñeco que lo demuestra.
@@ -91,7 +101,12 @@ for (const destino of DESTINOS) {
 
   for (const fuente of FUENTES) {
     const src = await io.read(fuente);
-    const animsSrc = new Set(src.getRoot().listAnimations().map((a) => a.getName()));
+    const animsSrc = new Set(
+      src
+        .getRoot()
+        .listAnimations()
+        .map((a) => a.getName()),
+    );
     if (![...QUEREMOS].some((n) => animsSrc.has(n))) continue;
     mergeDocuments(doc, src);
 

@@ -1,6 +1,8 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], {
+  stdio: 'ignore',
+});
 await new Promise((r) => setTimeout(r, 2500));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
@@ -19,7 +21,14 @@ await page.evaluate(() => {
   h.holdBlock(true);
   h.tickN(6, { block: true });
 });
-await page.evaluate(() => new Promise((r) => { let n = 14; const s = () => (--n <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }));
+await page.evaluate(
+  () =>
+    new Promise((r) => {
+      let n = 14;
+      const s = () => (--n <= 0 ? r() : requestAnimationFrame(s));
+      requestAnimationFrame(s);
+    }),
+);
 await page.evaluate(() => window.__colosos.setPaused(true));
 await page.waitForTimeout(200);
 await page.screenshot({ path: 'shots/10_bloqueo.png', timeout: 120000 });

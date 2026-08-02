@@ -1,7 +1,9 @@
 // Verificación: el haz dorado del arma caída, y el HUD tras recogerla.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], {
+  stdio: 'ignore',
+});
 await new Promise((r) => setTimeout(r, 2500));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
@@ -13,7 +15,16 @@ page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.goto('http://localhost:4173/?clase=medula');
 await page.waitForFunction(() => window.__colososReady === true, null, { timeout: 60000 });
 await page.waitForTimeout(1500);
-const frames = (n) => page.evaluate((c) => new Promise((r) => { let k = c; const s = () => (--k <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }), n);
+const frames = (n) =>
+  page.evaluate(
+    (c) =>
+      new Promise((r) => {
+        let k = c;
+        const s = () => (--k <= 0 ? r() : requestAnimationFrame(s));
+        requestAnimationFrame(s);
+      }),
+    n,
+  );
 async function snap(name) {
   await frames(5);
   await page.evaluate(() => window.__colosos.setPaused(true));
@@ -29,7 +40,9 @@ await page.evaluate(() => {
   const wolf = h.sim.mobs()[0];
   const p = h.sim.player;
   for (let t = 0; t < 300 && wolf.alive; t++) {
-    p.x = wolf.x; p.z = wolf.z; p.y = wolf.y;
+    p.x = wolf.x;
+    p.z = wolf.z;
+    p.y = wolf.y;
     p.yaw = Math.atan2(wolf.x - p.x, wolf.z - p.z);
     p.hp = p.maxHp;
     h.tickN(1, { attack: t % 2 === 0 });

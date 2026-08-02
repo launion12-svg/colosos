@@ -3,13 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { Sim } from '../src/sim/sim';
-import {
-  COYOTE_TIME,
-  DT,
-  IDLE_INPUT,
-  RUN_SPEED,
-  type MoveInput,
-} from '../src/sim/types';
+import { COYOTE_TIME, DT, IDLE_INPUT, RUN_SPEED, type MoveInput } from '../src/sim/types';
 
 const move = (over: Partial<MoveInput> = {}): MoveInput => ({ ...IDLE_INPUT, ...over });
 

@@ -42,9 +42,7 @@ describe('doble equipo y swap', () => {
     expect(s.player.abilityCooldownOther).toBeGreaterThan(0);
     // y la habilidad de B dispara ya
     const evsB = s.tick(move({ ability: true }));
-    expect(evsB.some((e) => e.type === 'abilityUsed' && e.ability === 'chispa_niebla')).toBe(
-      true,
-    );
+    expect(evsB.some((e) => e.type === 'abilityUsed' && e.ability === 'chispa_niebla')).toBe(true);
   });
 
   it('el escudo va con el set: con espada bloqueas, con bastón no', () => {

@@ -104,7 +104,14 @@ describe('niveles de criatura y calidad del botín', () => {
   it('el aviso no se repite cada tick mientras lo pisas', () => {
     const s = new Sim(41, { setA: 'medula' });
     s.player.ownedWeapons = Array.from({ length: BAG_SLOTS }, (_, i) => `relleno_${i}`);
-    s.drops.push({ id: 778, x: s.player.x, y: s.player.y, z: s.player.z, setId: 'vigia', rarity: 0 });
+    s.drops.push({
+      id: 778,
+      x: s.player.x,
+      y: s.player.y,
+      z: s.player.z,
+      setId: 'vigia',
+      rarity: 0,
+    });
     let avisos = 0;
     for (let t = 0; t < 20; t++) {
       for (const e of s.tick(move())) if (e.type === 'bagFull') avisos++;
@@ -118,7 +125,14 @@ describe('niveles de criatura y calidad del botín', () => {
       'medula',
       ...Array.from({ length: BAG_SLOTS - 1 }, (_, i) => `relleno_${i}`),
     ];
-    s.drops.push({ id: 779, x: s.player.x, y: s.player.y, z: s.player.z, setId: 'medula', rarity: 2 });
+    s.drops.push({
+      id: 779,
+      x: s.player.x,
+      y: s.player.y,
+      z: s.player.z,
+      setId: 'medula',
+      rarity: 2,
+    });
     const evs = s.tick(move());
     expect(evs.some((e) => e.type === 'bagFull')).toBe(false);
     expect(evs.some((e) => e.type === 'lootPickedUp')).toBe(true);

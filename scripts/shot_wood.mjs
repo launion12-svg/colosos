@@ -1,6 +1,8 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], {
+  stdio: 'ignore',
+});
 await new Promise((r) => setTimeout(r, 2500));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
@@ -18,7 +20,14 @@ await page.evaluate(() => {
   h.teleport(7, -62); // pradera abierta
   h.setCamera(Math.PI * 0.62, 0.3, 3.4); // primer plano de la espada
 });
-await page.evaluate(() => new Promise((r) => { let n = 10; const s = () => (--n <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }));
+await page.evaluate(
+  () =>
+    new Promise((r) => {
+      let n = 10;
+      const s = () => (--n <= 0 ? r() : requestAnimationFrame(s));
+      requestAnimationFrame(s);
+    }),
+);
 await page.evaluate(() => {
   const h = window.__colosos;
   h.setPaused(true);

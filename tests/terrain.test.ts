@@ -22,8 +22,8 @@ const SEED = 20260730;
 describe('terreno del coloso', () => {
   it('es determinista: misma entrada, misma altura', () => {
     for (let i = 0; i < 50; i++) {
-      const x = (i * 7.3) % COLOSSUS_WIDTH - COLOSSUS_WIDTH / 2;
-      const z = (i * 13.7) % COLOSSUS_LENGTH - COLOSSUS_LENGTH / 2;
+      const x = ((i * 7.3) % COLOSSUS_WIDTH) - COLOSSUS_WIDTH / 2;
+      const z = ((i * 13.7) % COLOSSUS_LENGTH) - COLOSSUS_LENGTH / 2;
       expect(terrainHeight(x, z, SEED)).toBe(terrainHeight(x, z, SEED));
     }
   });

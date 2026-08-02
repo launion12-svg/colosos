@@ -82,8 +82,6 @@ import {
   type SimEvent,
 } from './types';
 
-
-
 function baseEntity(id: number, kind: EntityKind, name: string): Entity {
   return {
     id,
@@ -730,8 +728,7 @@ export class Sim {
       const alerter = this.entities.find((e) => e.id === ev.id);
       if (!alerter) continue;
       for (const m of this.entities) {
-        if (m.kind !== 'mob' || !m.alive || m.aiState !== 'patrol' || m.id === alerter.id)
-          continue;
+        if (m.kind !== 'mob' || !m.alive || m.aiState !== 'patrol' || m.id === alerter.id) continue;
         if (dist2d(m.x, m.z, alerter.x, alerter.z) <= SOCIAL_AGGRO_RADIUS) {
           m.aiState = 'chase';
           m.aggroAnnounced = true; // acude sin repetir el aviso

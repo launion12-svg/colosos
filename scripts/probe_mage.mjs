@@ -2,7 +2,9 @@
 // Proyecta el orbe con la cámara real del render y devuelve sus coordenadas.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('npx', ['vite', 'preview', '--port', '4174', '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', '4174', '--strictPort'], {
+  stdio: 'ignore',
+});
 await new Promise((r) => setTimeout(r, 2500));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
@@ -14,7 +16,15 @@ page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.goto('http://localhost:4174/?clase=fumarel');
 await page.waitForFunction(() => window.__colososReady === true, null, { timeout: 60000 });
 const frames = (n) =>
-  page.evaluate((c) => new Promise((r) => { let k = c; const s = () => (--k <= 0 ? r() : requestAnimationFrame(s)); requestAnimationFrame(s); }), n);
+  page.evaluate(
+    (c) =>
+      new Promise((r) => {
+        let k = c;
+        const s = () => (--k <= 0 ? r() : requestAnimationFrame(s));
+        requestAnimationFrame(s);
+      }),
+    n,
+  );
 
 const out = await page.evaluate(() => {
   const h = window.__colosos;
@@ -24,14 +34,20 @@ const out = await page.evaluate(() => {
   h.tickN(10);
   const p = h.sim.player;
   const vivos = h.sim.mobs().filter((m) => m.alive);
-  for (const m of vivos) { m.x = p.x + 60; m.z = p.z + 60; }
+  for (const m of vivos) {
+    m.x = p.x + 60;
+    m.z = p.z + 60;
+  }
   const mob = vivos[0];
   mob.x = p.x + Math.sin(p.yaw) * 12;
   mob.z = p.z + Math.cos(p.yaw) * 12;
   h.tickN(4, { attack: true });
   h.tickN(2);
   h.setPaused(true);
-  return { proj: h.sim.projectiles.map((q) => ({ k: q.kind, x: q.x, y: q.y, z: q.z })), yaw: p.yaw };
+  return {
+    proj: h.sim.projectiles.map((q) => ({ k: q.kind, x: q.x, y: q.y, z: q.z })),
+    yaw: p.yaw,
+  };
 });
 await frames(6);
 const screen = await page.evaluate(() => {

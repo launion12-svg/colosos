@@ -36,7 +36,12 @@ for (const [origen, destino] of ARMAS) {
 const doc = await io.read(`${PACK}/Characters/gltf/Rogue.glb`);
 const src = await io.read('public/models/rogue_hooded.glb');
 
-const huesos = new Map(doc.getRoot().listNodes().map((n) => [n.getName(), n]));
+const huesos = new Map(
+  doc
+    .getRoot()
+    .listNodes()
+    .map((n) => [n.getName(), n]),
+);
 const escenasPropias = new Set(doc.getRoot().listScenes());
 const nodosPropios = new Set(doc.getRoot().listNodes());
 const mallasPropias = new Set(doc.getRoot().listMeshes());

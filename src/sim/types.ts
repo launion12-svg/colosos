@@ -304,7 +304,15 @@ export type SimEvent =
   | { type: 'leveledUp'; id: number; level: number }
   | { type: 'abilityUsed'; id: number; ability: string; slot: number }
   | { type: 'weaponSwapped'; id: number; setId: string }
-  | { type: 'lootDropped'; dropId: number; x: number; y: number; z: number; setId: string; rarity: number }
+  | {
+      type: 'lootDropped';
+      dropId: number;
+      x: number;
+      y: number;
+      z: number;
+      setId: string;
+      rarity: number;
+    }
   | { type: 'lootPickedUp'; dropId: number; setId: string; rarity: number; upgraded: boolean }
   | { type: 'weaponEquipped'; setId: string }
   | { type: 'bagFull'; setId: string }

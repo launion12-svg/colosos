@@ -51,7 +51,14 @@ export const CLASSES: ClassDef[] = [
     armaNombres: ['Arco de caza', 'Arco de tejo', 'Arco del Vigía Mayor'],
     desc: 'Ojos del coloso. Dispara flechas a distancia: el único ataque básico que no necesita acercarse.',
     model: 'models/ranger.glb',
-    weapons: [{ bone: 'handslot.l', model: 'models/bow.glb', rot: [Math.PI / 2, -Math.PI / 2, 0], restRot: [0, 0, 0] }],
+    weapons: [
+      {
+        bone: 'handslot.l',
+        model: 'models/bow.glb',
+        rot: [Math.PI / 2, -Math.PI / 2, 0],
+        restRot: [0, 0, 0],
+      },
+    ],
     hasShield: false,
     headMeshes: [],
     gesture: '2H_Ranged_Shoot',

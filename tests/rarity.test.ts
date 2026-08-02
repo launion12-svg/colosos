@@ -47,7 +47,14 @@ describe('rarezas de armas', () => {
 
   it('recoger una calidad superior mejora el arma en el sitio', () => {
     const s = new Sim(13, { setA: 'medula' });
-    s.drops.push({ id: 999, x: s.player.x, z: s.player.z, y: s.player.y, setId: 'medula', rarity: 2 });
+    s.drops.push({
+      id: 999,
+      x: s.player.x,
+      z: s.player.z,
+      y: s.player.y,
+      setId: 'medula',
+      rarity: 2,
+    });
     const evs = s.tick(move());
     const picked = evs.find((e) => e.type === 'lootPickedUp');
     expect(picked).toBeDefined();

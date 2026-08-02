@@ -168,10 +168,7 @@ export function resolveSwing(
     if (isBlockedHit(t, attacker)) {
       // el escudo absorbe la mayor parte; el resto sí entra
       const raw = rng.int(min, max);
-      const amount = Math.max(
-        0,
-        Math.floor(raw * BLOCK_DAMAGE_MULT * t.damageTakenMult),
-      );
+      const amount = Math.max(0, Math.floor(raw * BLOCK_DAMAGE_MULT * t.damageTakenMult));
       t.hp = Math.max(0, t.hp - amount);
       const killed = t.hp === 0;
       if (killed) t.alive = false;

@@ -42,12 +42,7 @@ export class SelectScreen {
     private gl: THREE.WebGLRenderer,
     uiRoot: HTMLElement,
   ) {
-    this.camera = new THREE.PerspectiveCamera(
-      50,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      200,
-    );
+    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
     this.camera.position.copy(CAM_POS);
     this.camera.lookAt(LOOK_AT);
 
@@ -275,7 +270,8 @@ export class SelectScreen {
     this.elapsed += dt;
 
     // la hoguera respira
-    this.fireLight.intensity = 26 + Math.sin(this.elapsed * 9) * 4 + Math.sin(this.elapsed * 23) * 2;
+    this.fireLight.intensity =
+      26 + Math.sin(this.elapsed * 9) * 4 + Math.sin(this.elapsed * 23) * 2;
     if (this.flame) {
       const s = 1 + Math.sin(this.elapsed * 11) * 0.09 + Math.sin(this.elapsed * 27) * 0.05;
       this.flame.scale.set(s, 1.05 - (s - 1) * 1.6, s);

@@ -211,7 +211,8 @@ export class AudioSink {
         const osc = ctx.createOscillator();
         osc.type = r.wave ?? 'sine';
         osc.frequency.setValueAtTime(r.f0 * pitch, t0);
-        if (r.f1) osc.frequency.exponentialRampToValueAtTime(Math.max(30, r.f1 * pitch), t0 + r.dur);
+        if (r.f1)
+          osc.frequency.exponentialRampToValueAtTime(Math.max(30, r.f1 * pitch), t0 + r.dur);
         osc.connect(g);
         osc.start(t0);
         osc.stop(t0 + r.dur);
@@ -304,7 +305,12 @@ export class AudioSink {
     // solo el primer frame (que era el fallo: se apagaba al segundo tick)
     const subeE = this.primeraEntrada && !this.enCombate ? AudioSink.ENTRADA_INICIAL : bajaC;
     this.avanceExplorar = mover(this.avanceExplorar, objetivoExplorar, dt, subeE);
-    this.avanceCombate = mover(this.avanceCombate, objetivoCombate, dt, this.enCombate ? subeC : bajaC);
+    this.avanceCombate = mover(
+      this.avanceCombate,
+      objetivoCombate,
+      dt,
+      this.enCombate ? subeC : bajaC,
+    );
     if (this.primeraEntrada && (this.avanceExplorar >= 0.999 || this.enCombate)) {
       this.primeraEntrada = false;
     }

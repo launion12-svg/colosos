@@ -68,9 +68,7 @@ describe('bloqueo con escudo', () => {
     const blocked = events.filter((e) => e.type === 'blockedHit');
     expect(blocked.length).toBeGreaterThan(0);
     // nunca un hitLanded del lobo al jugador: el auto-encara garantiza el arco
-    const unblocked = events.filter(
-      (e) => e.type === 'hitLanded' && e.targetId === s.player.id,
-    );
+    const unblocked = events.filter((e) => e.type === 'hitLanded' && e.targetId === s.player.id);
     expect(unblocked.length).toBe(0);
     for (const b of blocked) {
       if (b.type !== 'blockedHit') continue;
