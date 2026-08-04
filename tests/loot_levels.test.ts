@@ -25,12 +25,13 @@ function farm(s: Sim, templateId: string, rounds = 6): SimEvent[] {
   for (let r = 0; r < rounds; r++) {
     const mob = s.mobs().find((m) => m.templateId === templateId);
     if (!mob) break;
-    if (!mob.alive) {
-      mob.alive = true;
-      mob.hp = mob.maxHp;
-      mob.aiState = 'patrol';
-    }
-    for (let t = 0; t < 500 && mob.alive; t++) {
+    mob.alive = true;
+    mob.aiState = 'patrol';
+    // Se le deja a un punto de vida: lo que se mide aquí es la TABLA DE BOTÍN,
+    // no cuánto se tarda en tumbarlo. Bajarle la vida convierte 500 ticks por
+    // baja en tres, y el camino del código que suelta el objeto es el mismo.
+    mob.hp = 1;
+    for (let t = 0; t < 40 && mob.alive; t++) {
       s.player.x = mob.x;
       s.player.z = mob.z;
       s.player.y = mob.y;

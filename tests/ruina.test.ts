@@ -88,15 +88,19 @@ describe('el baluarte roto', () => {
     expect(p.z).toBe(RUINA_Z + 80);
   });
 
-  it('el portón deja pasar y la muralla de al lado no', () => {
-    // el arco está en el sur (z = +22 relativo), centrado en x
+  it('el portón deja pasar y un muro macizo no', () => {
+    // el portón está en el sur (z = +22 relativo), centrado en x
     const enElHueco = apartarDeMuros(RUINA_X, RUINA_Z + 22, 0.45);
     expect(Math.hypot(enElHueco.x - RUINA_X, enElHueco.z - (RUINA_Z + 22))).toBeLessThan(0.01);
-    // cuatro metros a un lado ya es muralla
-    const contraElMuro = apartarDeMuros(RUINA_X + 4, RUINA_Z + 22, 0.45);
-    expect(
-      Math.hypot(contraElMuro.x - (RUINA_X + 4), contraElMuro.z - (RUINA_Z + 22)),
-    ).toBeGreaterThan(0.3);
+    // La referencia de "muro macizo" es la cara NORTE de la torre, que se
+    // levanta siempre y sin puerta. Este test apuntaba antes a la muralla
+    // exterior cuatro metros a un lado del portón, y el día que cambió el
+    // ruido ese tramo pasó a ser un boquete de escombro: el test cazó una
+    // tirada de dados, no una propiedad.
+    const contraElMuro = apartarDeMuros(RUINA_X, RUINA_Z - 18, 0.45);
+    expect(Math.hypot(contraElMuro.x - RUINA_X, contraElMuro.z - (RUINA_Z - 18))).toBeGreaterThan(
+      0.3,
+    );
   });
 
   it('el jugador choca contra la muralla en vez de colarse', () => {

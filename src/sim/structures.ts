@@ -48,11 +48,22 @@ const E = Math.PI / 2;
 const S = Math.PI;
 const O = -Math.PI / 2;
 
-// Ruido entero reproducible: decide qué variante de muro toca en cada hueco
-// sin necesidad de arrastrar un Rng por todo el constructor.
+// Ruido reproducible: decide qué variante de muro toca en cada hueco sin
+// arrastrar un Rng por todo el constructor.
+//
+// OJO, y esto importa más de lo que parece: la primera versión hacía el truco
+// clásico de sin(x) * 43758.5453. Math.sin NO está garantizado bit a bit entre
+// versiones de motor, así que el mismo código podía levantar una muralla con
+// un boquete distinto en Node 20 que en Node 22 — y ahí se acaba el
+// determinismo, que es la propiedad de la que cuelga el sim entero y de la
+// que colgará el multijugador el día que dos clientes tengan que construir
+// exactamente el mismo mundo. Esto es aritmética de enteros de 32 bits:
+// idéntica en todas partes.
 function dado(a: number, b: number): number {
-  const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
-  return v - Math.floor(v);
+  let h = (Math.round(a * 64) | 0) * 374761393 + (Math.round(b * 64) | 0) * 668265263;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = h ^ (h >>> 16);
+  return (h >>> 0) / 4294967296;
 }
 
 // Distancia octogonal al centro de la ruina: cuadrada pero con las esquinas

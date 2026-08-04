@@ -67,7 +67,8 @@ describe('loot de armas', () => {
     const seen = new Set<string>();
     for (const wolf of s.mobs()) {
       const events: SimEvent[] = [];
-      for (let t = 0; t < 400 && wolf.alive; t++) {
+      wolf.hp = 1; // a un punto: aquí se mide QUÉ cae, no cuánto aguanta
+      for (let t = 0; t < 40 && wolf.alive; t++) {
         s.player.x = wolf.x;
         s.player.z = wolf.z;
         s.player.y = wolf.y;

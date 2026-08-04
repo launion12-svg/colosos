@@ -64,7 +64,8 @@ describe('casco', () => {
     const s = new Sim(33, { setA: 'hachero' });
     let caidos = 0;
     for (const mob of s.mobs()) {
-      for (let t = 0; t < 600 && mob.alive; t++) {
+      mob.hp = 1; // a un punto: se mide lo que SUELTA, no lo que aguanta
+      for (let t = 0; t < 40 && mob.alive; t++) {
         s.player.x = mob.x;
         s.player.z = mob.z;
         s.player.y = mob.y;
