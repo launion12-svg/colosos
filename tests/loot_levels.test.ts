@@ -9,12 +9,27 @@ import { IDLE_INPUT, type MoveInput, type SimEvent } from '../src/sim/types';
 
 const move = (over: Partial<MoveInput> = {}): MoveInput => ({ ...IDLE_INPUT, ...over });
 
-// mata a una criatura concreta por el camino real y devuelve sus eventos
+// Mata a una criatura concreta por el camino real y devuelve sus eventos.
+//
+// Se le da al bicho la vida a mano en vez de esperar su respawn: el jefe tarda
+// 240 s en volver, o sea 4.800 ticks por vuelta, y para medir una tabla de
+// botín hacen falta muchas bajas. Aquí no se prueba el respawn (eso es de
+// otro test), se prueba QUÉ suelta.
+//
+// Antes esto esperaba 260 ticks fijos. El día que alargamos los respawns el
+// jefe pasó a tardar 4.800, así que el test lo mataba UNA vez y aprobaba o
+// suspendía según cayera la tirada. Estuvo roto y en verde una buena
+// temporada, hasta que un cambio de terreno movió el RNG y se destapó.
 function farm(s: Sim, templateId: string, rounds = 6): SimEvent[] {
   const events: SimEvent[] = [];
   for (let r = 0; r < rounds; r++) {
-    const mob = s.mobs().find((m) => m.templateId === templateId && m.alive);
+    const mob = s.mobs().find((m) => m.templateId === templateId);
     if (!mob) break;
+    if (!mob.alive) {
+      mob.alive = true;
+      mob.hp = mob.maxHp;
+      mob.aiState = 'patrol';
+    }
     for (let t = 0; t < 500 && mob.alive; t++) {
       s.player.x = mob.x;
       s.player.z = mob.z;
@@ -23,8 +38,6 @@ function farm(s: Sim, templateId: string, rounds = 6): SimEvent[] {
       s.player.hp = s.player.maxHp;
       events.push(...s.tick(move({ attack: t % 2 === 0 })));
     }
-    // deja que respawnee para volver a farmearla
-    for (let t = 0; t < 260 && !mob.alive; t++) s.tick(move());
   }
   return events;
 }
@@ -53,7 +66,7 @@ describe('niveles de criatura y calidad del botín', () => {
 
   it('las arañas de nivel 1 solo sueltan calidad común', () => {
     const s = new Sim(41, { setA: 'medula' });
-    const events = farm(s, 'arana');
+    const events = farm(s, 'arana', 20);
     const drops = events.filter((e) => e.type === 'lootDropped');
     expect(drops.length).toBeGreaterThan(0);
     for (const d of drops) {
@@ -74,7 +87,7 @@ describe('niveles de criatura y calidad del botín', () => {
     const s = new Sim(41, { setA: 'medula', setB: 'fumarel' });
     s.player.ownedWeapons = Object.keys(CLASS_ABILITY);
     s.player.weaponRarity = Object.fromEntries(s.player.ownedWeapons.map((id) => [id, 0]));
-    const events = farm(s, 'gigante', 10);
+    const events = farm(s, 'gigante', 40);
     const drops = events.filter(
       (e): e is Extract<SimEvent, { type: 'lootDropped' }> => e.type === 'lootDropped',
     );

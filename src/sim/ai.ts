@@ -4,8 +4,12 @@
 import type { Rng } from './rng';
 import { inMeleeCone, resolveSwing } from './combat';
 import { terrainHeight } from './terrain';
+import { apartarDeMuros } from './structures';
+import { buscarCamino, hayPasoLibre, siguientePunto } from './navigation';
 import {
   DT,
+  MOB_RADIUS,
+  PATH_REFRESH,
   MOB_ATTACK_COOLDOWN,
   MOB_ATTACK_RANGE,
   MOB_ATTACK_WINDUP,
@@ -26,11 +30,58 @@ function moveToward(m: Entity, tx: number, tz: number, speed: number, seed: numb
   const step = Math.min(speed * DT, dist);
   m.x += (dx / dist) * step;
   m.z += (dz / dist) * step;
+  // La arquitectura también los para a ellos. Antes solo frenaba al héroe, así
+  // que un lobo podía cruzar la muralla como si fuera humo.
+  const libre = apartarDeMuros(m.x, m.z, MOB_RADIUS);
+  m.x = libre.x;
+  m.z = libre.z;
   m.vx = (dx / dist) * speed;
   m.vz = (dz / dist) * speed;
   m.yaw = Math.atan2(dx, dz);
   m.y = terrainHeight(m.x, m.z, seed);
   return dist;
+}
+
+// Ir hacia (tx,tz) rodeando muros si hace falta. La distancia que devuelve es
+// la de línea recta al destino: el leash y el "ya he llegado" se miden así,
+// no por lo que mida el rodeo.
+function moveRodeando(m: Entity, tx: number, tz: number, speed: number, seed: number): number {
+  const directo = dist2d(m.x, m.z, tx, tz);
+  m.caminoTimer = Math.max(0, m.caminoTimer - DT);
+
+  // Camino despejado: a por él de frente y a olvidarse de rutas. Este es el
+  // caso del 99% del mapa y por eso el A* no cuesta nada en la práctica.
+  if (hayPasoLibre(m.x, m.z, tx, tz, MOB_RADIUS)) {
+    m.camino = null;
+    moveToward(m, tx, tz, speed, seed);
+    return directo;
+  }
+
+  // Hay muro de por medio. Se recalcula de vez en cuando, no cada tick.
+  const destinoViejo = m.camino ? m.camino[m.camino.length - 1] : null;
+  const seMovioElBlanco = destinoViejo ? dist2d(destinoViejo.x, destinoViejo.z, tx, tz) > 3 : true;
+  if (m.caminoTimer <= 0 && (!m.camino || seMovioElBlanco)) {
+    m.camino = buscarCamino(m.x, m.z, tx, tz);
+    m.caminoPaso = 0;
+    m.caminoTimer = PATH_REFRESH;
+  }
+
+  if (!m.camino || m.camino.length === 0) {
+    // sin ruta (encerrado, o el destino es inalcanzable): empuja de frente,
+    // que al menos se queda pegado al muro mirando a su presa
+    moveToward(m, tx, tz, speed, seed);
+    return directo;
+  }
+
+  // tirar de la cuerda: al punto más lejano que se vea, no de celda en celda
+  m.caminoPaso = siguientePunto(m.camino, m.caminoPaso, m.x, m.z);
+  const p = m.camino[m.caminoPaso];
+  if (dist2d(m.x, m.z, p.x, p.z) < 0.6 && m.caminoPaso < m.camino.length - 1) {
+    m.caminoPaso++;
+  }
+  const destino = m.camino[m.caminoPaso];
+  moveToward(m, destino.x, destino.z, speed, seed);
+  return directo;
 }
 
 function pickPatrolPoint(rng: Rng, m: Entity): void {
@@ -66,6 +117,7 @@ export function updateMob(
       m.y = terrainHeight(m.x, m.z, seed);
       m.aiState = 'patrol';
       m.aggroAnnounced = false;
+      m.camino = null;
       pickPatrolPoint(rng, m);
       emit({ type: 'respawned', id: m.id, kind: 'mob' });
     }
@@ -104,7 +156,7 @@ export function updateMob(
       if (m.patrolWait > 0) {
         m.patrolWait -= DT;
       } else {
-        const d = moveToward(m, m.patrolX, m.patrolZ, speed * MOB_PATROL_SPEED_MULT, seed);
+        const d = moveRodeando(m, m.patrolX, m.patrolZ, speed * MOB_PATROL_SPEED_MULT, seed);
         if (d < 1.2) pickPatrolPoint(rng, m);
       }
       break;
@@ -124,7 +176,7 @@ export function updateMob(
         m.aiState = 'attack';
         break;
       }
-      moveToward(m, player.x, player.z, speed, seed);
+      moveRodeando(m, player.x, player.z, speed, seed);
       break;
     }
     case 'attack': {
@@ -146,7 +198,7 @@ export function updateMob(
     }
     case 'evade': {
       // vuelve a casa inmune y se cura al llegar
-      const d = moveToward(m, m.homeX, m.homeZ, speed * MOB_EVADE_SPEED_MULT, seed);
+      const d = moveRodeando(m, m.homeX, m.homeZ, speed * MOB_EVADE_SPEED_MULT, seed);
       if (d < 1.5) {
         m.hp = m.maxHp;
         m.aiState = 'patrol';

@@ -76,6 +76,13 @@ export function playerDamageMax(level: number): number {
 export const MOB_MAX_HP = 42;
 export const MOB_AGGRO_RADIUS = 11;
 export const MOB_LEASH_DISTANCE = 34;
+// Radio del cuerpo de un bicho para chocar con la arquitectura. Por debajo del
+// del héroe a propósito: si no, los packs de tres se atascan en el portón.
+export const MOB_RADIUS = 0.35;
+// Cada cuánto se permite recalcular la ruta. A 20 Hz, buscar camino en cada
+// tick para cada bicho sería tirar el presupuesto entero a la basura por un
+// resultado que apenas cambia.
+export const PATH_REFRESH = 0.45; // segundos
 export const MOB_ATTACK_RANGE = 2.2;
 export const MOB_ATTACK_WINDUP = 0.35; // telegrafiado: se puede leer y esquivar
 export const MOB_ATTACK_COOLDOWN = 1.7;
@@ -165,6 +172,11 @@ export interface Entity {
   patrolX: number;
   patrolZ: number;
   patrolWait: number;
+  // Ruta para rodear la arquitectura. null mientras se pueda ir en línea recta,
+  // que es lo normal: el lomo es casi todo pradera y buscar camino cuesta.
+  camino: { x: number; z: number }[] | null;
+  caminoPaso: number;
+  caminoTimer: number; // cuánto queda para poder volver a buscar
   targetId: number;
   aggroAnnounced: boolean;
   xp: number; // XP acumulada hacia el siguiente nivel (solo player)

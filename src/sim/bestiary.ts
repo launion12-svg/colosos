@@ -262,11 +262,17 @@ export const CAMPS: CampDef[] = [
   // Cada tramo sube un peldaño: si te saltas campamentos, el siguiente te come.
   { template: 'arana', x: 16, z: -102, count: 3 },
   { template: 'cangrejo', x: -20, z: -98, count: 3 },
-  // Estos cuatro rodean el Baluarte Roto sin meterse dentro. En el recinto no
-  // se pone a nadie hasta que los bichos sepan buscar la puerta en vez de
-  // empotrarse contra la muralla: eso es pathfinding, y es el siguiente paso
-  // de verdad para el modo mazmorra.
   { template: 'jabali', x: -28, z: -92, count: 2 },
+  // LA GUARNICIÓN: dentro del patio del Baluarte Roto. Esto no se podía hacer
+  // hasta que los bichos supieron rodear un muro; ahora salen por el portón a
+  // buscarte en vez de empotrarse contra la muralla. Es la prueba de fuego del
+  // pathfinding y el primer combate del juego que ocurre DENTRO de algo.
+  // los goblins, hechos fuertes DENTRO de la torre: para llegar a ti tienen
+  // que cruzar dos puertas, la de la torre y el portón. Ojo con las
+  // coordenadas: el primer intento los ponía en (-8, -76), justo encima del
+  // muro sur de la torre, y nacían empotrados.
+  { template: 'goblin', x: 0, z: -82, count: 3 },
+  { template: 'corredor', x: 9, z: -62, count: 2 },
   { template: 'lobo', x: 36, z: -84, count: 3 },
   { template: 'cangrejo', x: -38, z: -58, count: 3 },
   { template: 'corredor', x: -30, z: -48, count: 2 },

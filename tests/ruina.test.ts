@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CAMPS } from '../src/sim/bestiary';
+import { buscarCamino } from '../src/sim/navigation';
 import { Sim } from '../src/sim/sim';
 import {
   RUINA_DENTRO,
@@ -110,9 +111,16 @@ describe('el baluarte roto', () => {
     expect(s.player.z).toBeGreaterThan(RUINA_Z - 18);
   });
 
-  it('ningún campamento se queda encerrado dentro de la muralla', () => {
+  // Este test decía lo contrario hasta que los bichos aprendieron a rodear un
+  // muro: entonces un campamento dentro del recinto era un fallo. Ahora la
+  // guarnición es una función, y lo que hay que garantizar es que tenga
+  // salida — un pack encerrado sin ruta al exterior sí sería un fallo.
+  it('todo campamento del recinto tiene salida al exterior', () => {
+    const fuera = { x: RUINA_X, z: RUINA_Z + 34 };
     for (const c of CAMPS) {
-      expect(distRuina(c.x, c.z), `${c.template} en (${c.x}, ${c.z})`).toBeGreaterThan(24);
+      if (distRuina(c.x, c.z) > 22) continue; // este vive fuera, no aplica
+      const camino = buscarCamino(c.x, c.z, fuera.x, fuera.z);
+      expect(camino, `${c.template} en (${c.x}, ${c.z}) está emparedado`).not.toBeNull();
     }
   });
 
